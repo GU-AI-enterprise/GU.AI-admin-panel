@@ -1,26 +1,142 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ─── Dark Admin Theme (default) ─── */
+:root {
+  --background: oklch(0.07 0.012 260);       /* Deep Navy-Slate */
+  --foreground: oklch(0.95 0.008 260);
+  --card: oklch(0.10 0.013 260);
+  --card-foreground: oklch(0.95 0.008 260);
+  --popover: oklch(0.09 0.013 260);
+  --popover-foreground: oklch(0.95 0.008 260);
+  --primary: oklch(0.72 0.11 340);           /* GU.AI Rose Gold */
+  --primary-foreground: oklch(0.07 0.012 260);
+  --secondary: oklch(0.13 0.014 260);
+  --secondary-foreground: oklch(0.85 0.008 260);
+  --muted: oklch(0.12 0.012 260);
+  --muted-foreground: oklch(0.55 0.01 260);
+  --accent: oklch(0.15 0.016 260);
+  --accent-foreground: oklch(0.95 0.008 260);
+  --destructive: oklch(0.65 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.18 0.014 260);
+  --input: oklch(0.14 0.013 260);
+  --ring: oklch(0.72 0.11 340);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.065 0.012 260);
+  --sidebar-border: oklch(0.15 0.012 260);
+  --success: oklch(0.65 0.14 145);
+  --warning: oklch(0.75 0.16 75);
+  --info: oklch(0.65 0.15 220);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  ::selection {
+    background-color: oklch(0.72 0.11 340 / 0.3);
+    color: oklch(0.95 0.008 260);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.25 0.02 260);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.35 0.04 260);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ─── Animations ─── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.72 0.11 340 / 0); }
+  50% { box-shadow: 0 0 20px 4px oklch(0.72 0.11 340 / 0.25); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out forwards;
+}
+
+.animate-slide-left {
+  animation: slide-in-left 0.3s ease-out forwards;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    oklch(0.14 0.012 260) 25%,
+    oklch(0.18 0.014 260) 50%,
+    oklch(0.14 0.012 260) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ─── Admin glass card ─── */
+.glass-card {
+  background: oklch(0.10 0.013 260 / 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid oklch(0.18 0.014 260 / 0.7);
+}
+
+/* ─── Sidebar glow line ─── */
+.sidebar-active-glow {
+  box-shadow: inset 3px 0 0 oklch(0.72 0.11 340);
 }
