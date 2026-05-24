@@ -31,23 +31,31 @@ export default function AuthCallbackPage() {
 
       try {
         // Lắng nghe sự kiện Auth thay đổi - cách này đáng tin cậy hơn cho OAuth
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, newSession) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
           console.log("Auth event:", event, "Has session:", !!newSession);
           
           if (event === "SIGNED_IN" && newSession) {
-            // Lưu session vào localStorage - KHÔNG cần lưu vào bảng public.users
-            localStorage.setItem("admin_token", newSession.access_token);
-            localStorage.setItem(
-              "admin_user",
-              JSON.stringify({
-                name: newSession.user?.user_metadata?.full_name || 
-                      newSession.user?.user_metadata?.name || 
-                      newSession.user?.email?.split('@')[0] || 
-                      "GU.AI OAuth Admin",
-                email: newSession.user?.email || "",
-              })
-            );
+            // Kiểm tra role admin
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('role')
+              .eq('id', newSession.user.id)
+              .single();
 
+            if (userError || !userData || userData.role !== 'admin') {
+              // Không phải admin - logout và báo lỗi
+              await supabase.auth.signOut();
+              setIsError(true);
+              setErrorDetail("Bạn không có quyền truy cập Admin Panel. Chỉ Admin mới được phép.");
+              setStatusMessage("Không có quyền truy cập. Đang chuyển hướng...");
+              setTimeout(() => {
+                router.push("/login?error=not_admin");
+              }, 2000);
+              authListener.subscription.unsubscribe();
+              return;
+            }
+
+            // Là admin - tiếp tục
             setStatusMessage("Đăng nhập thành công! Đang chuyển hướng...");
             setTimeout(() => {
               router.push("/dashboard");
@@ -67,17 +75,25 @@ export default function AuthCallbackPage() {
           if (!isError) {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-              localStorage.setItem("admin_token", session.access_token);
-              localStorage.setItem(
-                "admin_user",
-                JSON.stringify({
-                  name: session.user?.user_metadata?.full_name || 
-                        session.user?.user_metadata?.name || 
-                        session.user?.email?.split('@')[0] || 
-                        "GU.AI OAuth Admin",
-                  email: session.user?.email || "",
-                })
-              );
+              // Kiểm tra role admin
+              const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+
+              if (userError || !userData || userData.role !== 'admin') {
+                await supabase.auth.signOut();
+                setIsError(true);
+                setErrorDetail("Bạn không có quyền truy cập Admin Panel. Chỉ Admin mới được phép.");
+                setStatusMessage("Không có quyền truy cập. Đang chuyển hướng...");
+                setTimeout(() => {
+                  router.push("/login?error=not_admin");
+                }, 2000);
+                authListener.subscription.unsubscribe();
+                return;
+              }
+
               setStatusMessage("Đăng nhập thành công! Đang chuyển hướng...");
               setTimeout(() => {
                 router.push("/dashboard");

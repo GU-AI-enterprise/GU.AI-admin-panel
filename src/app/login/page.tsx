@@ -1,18 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@gu.ai");
-  const [password, setPassword] = useState("admin123");
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') || '/dashboard';
+  const errorParam = searchParams.get('error');
+  
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(errorParam === 'not_admin' ? "Bạn không có quyền truy cập Admin Panel." : "");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,31 +24,37 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // 1. Thử đăng nhập qua Supabase trước
+      // Đăng nhập qua Supabase
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (authError) {
-        // 2. Nếu lỗi từ Supabase, hỗ trợ fallback tài khoản giả lập để thuận tiện phát triển/demo
-        if (email === "admin@gu.ai" && password === "admin123") {
-          localStorage.setItem("admin_token", "gu-ai-mock-token");
-          localStorage.setItem("admin_user", JSON.stringify({ name: "GU.AI Admin", email }));
-          router.push("/dashboard");
-          return;
-        }
         throw new Error(authError.message);
       }
 
-      // Đăng nhập thành công qua Supabase
-      if (data?.session) {
-        localStorage.setItem("admin_token", data.session.access_token);
-        localStorage.setItem("admin_user", JSON.stringify({
-          name: data.user?.user_metadata?.full_name || "GU.AI Admin",
-          email: data.user?.email || email,
-        }));
-        router.push("/dashboard");
+      // Đăng nhập thành công - kiểm tra role
+      if (data?.session?.user) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', data.session.user.id)
+          .single();
+
+        if (userError || !userData) {
+          throw new Error("Không thể tìm thấy thông tin người dùng.");
+        }
+
+        if (userData.role !== 'admin') {
+          // Không phải admin - logout và báo lỗi
+          await supabase.auth.signOut();
+          throw new Error("Bạn không có quyền truy cập Admin Panel. Chỉ Admin mới được phép.");
+        }
+
+        // Là admin - redirect
+        router.push(redirect);
+        router.refresh();
       }
     } catch (err: any) {
       setError(err.message || "Email hoặc mật khẩu không chính xác.");
