@@ -7,6 +7,7 @@ import {
   Users,
   LayoutDashboard,
   ShieldCheck,
+  Headphones,
   Settings,
   LogOut,
   Bell,
@@ -49,6 +50,7 @@ export default function DashboardLayout({
   const navItems = [
     { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
     { name: "Quản lý Người dùng", href: "/dashboard/users", icon: Users },
+    { name: "Hỗ trợ người dùng", href: "/dashboard/support", icon: Headphones },
     { name: "Phân quyền & Vai trò", href: "/dashboard/roles", icon: ShieldCheck },
   ];
 
@@ -154,7 +156,7 @@ export default function DashboardLayout({
               <span>Hệ thống</span>
               <span>/</span>
               <span className="font-semibold text-slate-800 dark:text-slate-200">
-                {pathname === "/dashboard" ? "Tổng quan" : pathname === "/dashboard/users" ? "Quản lý Người dùng" : "Phân quyền"}
+                {pathname === "/dashboard" ? "Tổng quan" : pathname === "/dashboard/users" ? "Quản lý Người dùng" : pathname === "/dashboard/support" ? "Hỗ trợ người dùng" : "Phân quyền"}
               </span>
             </div>
             <div className="flex items-center gap-4">

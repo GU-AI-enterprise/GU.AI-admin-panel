@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [statusMessage, setStatusMessage] = useState("Đang thiết lập phiên đăng nhập quản trị...");
@@ -162,5 +162,17 @@ export default function AuthCallbackPage() {
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       )}
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }
