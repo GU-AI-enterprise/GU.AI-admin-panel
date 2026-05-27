@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
@@ -28,6 +29,15 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
+  // Tạo admin client để bypass RLS khi kiểm tra role
+  const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      )
+    : null
+
   // Protected routes - require authentication and admin role
   const protectedPaths = ['/dashboard', '/users', '/settings', '/reports']
   const isProtectedRoute = protectedPaths.some(path => 
@@ -48,22 +58,33 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl)
     }
 
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabase
+    // Check if user is admin - dùng admin client để bypass RLS
+    const adminClient = supabaseAdmin || supabase
+    const { data: userData, error: userError } = await adminClient
       .from('users')
       .select('role')
       .eq('id', session.user.id)
       .single()
 
     if (userError || !userData || userData.role !== 'admin') {
+      // Log chi tiết để debug
+      console.error('[Middleware] Admin check failed:', {
+        userId: session.user.id,
+        userError: userError?.message,
+        userErrorDetails: userError,
+        hasUserData: !!userData,
+        userRole: userData?.role,
+        path: request.nextUrl.pathname
+      })
       // Redirect to login if not admin
       return NextResponse.redirect(new URL('/login?error=not_admin', request.url))
     }
   }
 
   if (isAuthRoute && session) {
-    // Check if user is admin before redirecting to dashboard
-    const { data: userData, error: userError } = await supabase
+    // Check if user is admin before redirecting to dashboard - dùng admin client
+    const adminClient = supabaseAdmin || supabase
+    const { data: userData, error: userError } = await adminClient
       .from('users')
       .select('role')
       .eq('id', session.user.id)
