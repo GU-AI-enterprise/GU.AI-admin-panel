@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Search, RefreshCw } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,8 +23,16 @@ import type { AdminUser } from "@/features/users/usersSlice";
 
 export default function UsersPage() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { userRole } = useAuth();
   const isViewerAdmin = userRole === "admin";
+
+  // Chặn staff vào trang này
+  useEffect(() => {
+    if (userRole !== null && userRole !== "admin") {
+      router.replace("/dashboard");
+    }
+  }, [userRole, router]);
 
   // Redux selectors
   const users      = useAppSelector(selectUsers);

@@ -42,11 +42,10 @@ function AuthCallbackContent() {
               .eq('id', newSession.user.id)
               .single();
 
-            if (userError || !userData || userData.role !== 'admin') {
-              // Không phải admin - logout và báo lỗi
+            if (userError || !userData || (userData.role !== 'admin' && userData.role !== 'staff')) {
               await supabase.auth.signOut();
               setIsError(true);
-              setErrorDetail("Bạn không có quyền truy cập Admin Panel. Chỉ Admin mới được phép.");
+              setErrorDetail("Bạn không có quyền truy cập Admin Panel. Chỉ Admin và Staff mới được phép.");
               setStatusMessage("Không có quyền truy cập. Đang chuyển hướng...");
               setTimeout(() => {
                 router.push("/login?error=not_admin");
@@ -55,7 +54,7 @@ function AuthCallbackContent() {
               return;
             }
 
-            // Là admin - tiếp tục
+            // Là admin/staff - tiếp tục
             setStatusMessage("Đăng nhập thành công! Đang chuyển hướng...");
             setTimeout(() => {
               router.push("/dashboard");
@@ -82,10 +81,10 @@ function AuthCallbackContent() {
                 .eq('id', session.user.id)
                 .single();
 
-              if (userError || !userData || userData.role !== 'admin') {
+              if (userError || !userData || (userData.role !== 'admin' && userData.role !== 'staff')) {
                 await supabase.auth.signOut();
                 setIsError(true);
-                setErrorDetail("Bạn không có quyền truy cập Admin Panel. Chỉ Admin mới được phép.");
+                setErrorDetail("Bạn không có quyền truy cập Admin Panel. Chỉ Admin và Staff mới được phép.");
                 setStatusMessage("Không có quyền truy cập. Đang chuyển hướng...");
                 setTimeout(() => {
                   router.push("/login?error=not_admin");

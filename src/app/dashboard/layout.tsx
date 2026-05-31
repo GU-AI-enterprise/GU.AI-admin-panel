@@ -13,11 +13,11 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { toggleSidebar, setSidebarOpen } from "@/features/ui/uiSlice";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { name: "Tổng quan",           href: "/dashboard",         icon: LayoutDashboard },
-  { name: "Người dùng",          href: "/dashboard/users",   icon: Users },
-  { name: "Hỗ trợ",              href: "/dashboard/support", icon: Headphones },
-  { name: "Phân quyền",          href: "/dashboard/roles",   icon: ShieldCheck },
+const ALL_NAV_ITEMS = [
+  { name: "Tổng quan",  href: "/dashboard",         icon: LayoutDashboard, adminOnly: false },
+  { name: "Người dùng", href: "/dashboard/users",   icon: Users,           adminOnly: true  },
+  { name: "Hỗ trợ",     href: "/dashboard/support", icon: Headphones,      adminOnly: false },
+  { name: "Phân quyền", href: "/dashboard/roles",   icon: ShieldCheck,     adminOnly: false },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -56,7 +56,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     "Admin";
   const email = session.user.email || "";
 
-  const breadcrumb = navItems.find((n) => n.href === pathname)?.name ?? "Tổng quan";
+  const isStrictAdmin = userRole === "admin";
+  const navItems = ALL_NAV_ITEMS.filter((n) => !n.adminOnly || isStrictAdmin);
+  const breadcrumb = ALL_NAV_ITEMS.find((n) => n.href === pathname)?.name ?? "Tổng quan";
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">

@@ -13,7 +13,6 @@ interface AuthContextType {
   isAdmin: boolean;
   userRole: string | null;
   signOut: () => Promise<void>;
-  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -108,16 +107,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     dispatch(clearAuth());
   };
 
-  const refreshSession = async () => {
-    const { data: { session } } = await supabase.auth.refreshSession();
-    setSession(session);
-    setUser(session?.user ?? null);
-    if (session) await syncUserToRedux(session);
-  };
-
   return (
     <AuthContext.Provider
-      value={{ user, session, loading, isAdmin, userRole, signOut, refreshSession }}
+      value={{ user, session, loading, isAdmin, userRole, signOut }}
     >
       {children}
     </AuthContext.Provider>

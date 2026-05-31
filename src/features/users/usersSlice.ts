@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '@/store/store';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+import { apiFetch } from '@/lib/apiFetch';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -53,11 +52,8 @@ interface UsersState {
 export const fetchStats = createAsyncThunk(
   'users/fetchStats',
   async (_, { getState, rejectWithValue }) => {
-    const token = (getState() as RootState).auth.accessToken;
-    if (!token) return rejectWithValue('No token');
-    const res = await fetch(`${API_URL}/api/admin/stats`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (!(getState() as RootState).auth.accessToken) return rejectWithValue('No token');
+    const res = await apiFetch('/api/admin/stats');
     const json = await res.json();
     if (!json.success) return rejectWithValue(json.error);
     return json.data as UserStats;
@@ -68,8 +64,7 @@ export const fetchUsers = createAsyncThunk(
   'users/fetchUsers',
   async (_, { getState, rejectWithValue }) => {
     const state = getState() as RootState;
-    const token = state.auth.accessToken;
-    if (!token) return rejectWithValue('No token');
+    if (!state.auth.accessToken) return rejectWithValue('No token');
 
     const { page, limit, search, roleFilter, statusFilter } = state.users;
     const params = new URLSearchParams({
@@ -80,9 +75,7 @@ export const fetchUsers = createAsyncThunk(
       ...(statusFilter !== 'all' && { status: statusFilter }),
     });
 
-    const res = await fetch(`${API_URL}/api/admin/users?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await apiFetch(`/api/admin/users?${params}`);
     const json = await res.json();
     if (!json.success) return rejectWithValue(json.error);
     return json.data as { users: AdminUser[]; total: number; totalPages: number };
@@ -91,11 +84,10 @@ export const fetchUsers = createAsyncThunk(
 
 export const updateUserRole = createAsyncThunk(
   'users/updateRole',
-  async ({ id, role }: { id: string; role: string }, { getState, rejectWithValue }) => {
-    const token = (getState() as RootState).auth.accessToken;
-    const res = await fetch(`${API_URL}/api/admin/users/${id}/role`, {
+  async ({ id, role }: { id: string; role: string }, { rejectWithValue }) => {
+    const res = await apiFetch(`/api/admin/users/${id}/role`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role }),
     });
     const json = await res.json();
@@ -106,11 +98,10 @@ export const updateUserRole = createAsyncThunk(
 
 export const updateUserStatus = createAsyncThunk(
   'users/updateStatus',
-  async ({ id, status }: { id: string; status: string }, { getState, rejectWithValue }) => {
-    const token = (getState() as RootState).auth.accessToken;
-    const res = await fetch(`${API_URL}/api/admin/users/${id}/status`, {
+  async ({ id, status }: { id: string; status: string }, { rejectWithValue }) => {
+    const res = await apiFetch(`/api/admin/users/${id}/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
     const json = await res.json();
@@ -121,12 +112,8 @@ export const updateUserStatus = createAsyncThunk(
 
 export const deleteUser = createAsyncThunk(
   'users/delete',
-  async (id: string, { getState, rejectWithValue }) => {
-    const token = (getState() as RootState).auth.accessToken;
-    const res = await fetch(`${API_URL}/api/admin/users/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  async (id: string, { rejectWithValue }) => {
+    const res = await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.success) return rejectWithValue(json.error);
     return id;
