@@ -1,9 +1,46 @@
 "use client";
 
-import { Users, UserCheck, Activity, ShieldAlert, Sparkles, TrendingUp, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, UserCheck, Activity, ShieldAlert, Sparkles, TrendingUp, ShieldCheck, Zap, RefreshCw, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+interface FashnCredits {
+  total: number;
+  subscription: number;
+  onDemand: number;
+}
 
 export default function DashboardPage() {
+  const { session } = useAuth();
+
+  const [credits, setCredits] = useState<FashnCredits | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(true);
+  const [creditsError, setCreditsError] = useState<string | null>(null);
+
+  const fetchCredits = async () => {
+    setCreditsLoading(true);
+    setCreditsError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/ai/credits`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || `HTTP ${res.status}`);
+      setCredits(json.data);
+    } catch (err: any) {
+      setCreditsError(err.message || "Không thể kết nối Fashn.ai");
+    } finally {
+      setCreditsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.access_token) fetchCredits();
+  }, [session?.access_token]);
+
   const stats = [
     { label: "Tổng người dùng", value: "12,840", change: "+12.5%", trend: "up", icon: Users, color: "text-blue-600 bg-blue-50 dark:bg-blue-950/50 dark:text-blue-400" },
     { label: "Người dùng hoạt động", value: "8,421", change: "+8.2%", trend: "up", icon: UserCheck, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-400" },
@@ -47,6 +84,68 @@ export default function DashboardPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Fashn.ai Credits Card */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl p-2.5 bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Fashn.ai Credits</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Số dư tài khoản API</p>
+            </div>
+          </div>
+          <button
+            onClick={fetchCredits}
+            disabled={creditsLoading}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${creditsLoading ? "animate-spin" : ""}`} />
+            Làm mới
+          </button>
+        </div>
+
+        {creditsError ? (
+          <div className="flex items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{creditsError}</span>
+          </div>
+        ) : creditsLoading ? (
+          <div className="grid grid-cols-3 gap-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-20 animate-pulse" />
+            ))}
+          </div>
+        ) : credits ? (
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-xl bg-violet-50 dark:bg-violet-950/30 p-4 text-center">
+              <p className="text-2xl font-bold text-violet-700 dark:text-violet-300">{credits.total.toLocaleString()}</p>
+              <p className="text-xs text-violet-500 dark:text-violet-400 mt-1 font-medium">Tổng cộng</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 p-4 text-center">
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{credits.subscription.toLocaleString()}</p>
+              <p className="text-xs text-blue-500 dark:text-blue-400 mt-1 font-medium">Gói tháng</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-4 text-center">
+              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{credits.onDemand.toLocaleString()}</p>
+              <p className="text-xs text-emerald-500 dark:text-emerald-400 mt-1 font-medium">Mua thêm</p>
+            </div>
+          </div>
+        ) : null}
+
+        {credits && (
+          <div className="mt-4 flex items-center gap-1.5">
+            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div
+                className="h-2 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-500"
+                style={{ width: `${Math.min((credits.total / Math.max(credits.total + 100, 1)) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation shortcuts */}

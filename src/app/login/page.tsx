@@ -46,10 +46,10 @@ function LoginContent() {
           throw new Error("Không thể tìm thấy thông tin người dùng.");
         }
 
-        if (userData.role !== 'admin') {
-          // Không phải admin - logout và báo lỗi
+        if (userData.role !== 'admin' && userData.role !== 'staff') {
+          // Không phải admin/staff - logout và báo lỗi
           await supabase.auth.signOut();
-          throw new Error("Bạn không có quyền truy cập Admin Panel. Chỉ Admin mới được phép.");
+          throw new Error("Bạn không có quyền truy cập. Chỉ Admin và Staff mới được phép đăng nhập.");
         }
 
         // Là admin - redirect

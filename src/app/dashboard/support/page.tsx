@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Headphones, Loader2, MessageCircle, RefreshCw, Send } from "lucide-react";
+import {
+  Headphones, Loader2, MessageCircle, RefreshCw, Send,
+  UserCheck, Clock, CheckCircle2, XCircle, AlertCircle, Lock, Inbox
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface SupportUser {
@@ -22,13 +25,14 @@ interface SupportConversation {
   created_at: string;
   updated_at: string;
   user?: SupportUser | SupportUser[] | null;
+  assigned_staff?: SupportUser | SupportUser[] | null;
 }
 
 interface SupportMessage {
   id: string;
   conversation_id: string;
   sender_id: string;
-  sender_type: "user" | "staff" | "admin" | "bot";
+  sender_type: "customer" | "staff" | "admin" | "bot" | "system";
   content: string;
   message_type: string;
   is_read: boolean;
@@ -36,222 +40,287 @@ interface SupportMessage {
   sender?: SupportUser | SupportUser[] | null;
 }
 
-const statusLabels: Record<SupportConversation["status"], string> = {
-  open: "Mở",
-  pending: "Đang xử lý",
-  resolved: "Đã xử lý",
-  closed: "Đã đóng",
-};
-
-function normalizeUser(user?: SupportUser | SupportUser[] | null): SupportUser | null {
-  if (!user) return null;
-  return Array.isArray(user) ? user[0] || null : user;
+function normalizeUser(u?: SupportUser | SupportUser[] | null): SupportUser | null {
+  if (!u) return null;
+  return Array.isArray(u) ? (u[0] ?? null) : u;
 }
+
+function initials(user: SupportUser | null): string {
+  if (!user) return "?";
+  const src = user.name || user.email || "";
+  return src.slice(0, 2).toUpperCase();
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "vừa xong";
+  if (m < 60) return `${m} phút trước`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} giờ trước`;
+  return `${Math.floor(h / 24)} ngày trước`;
+}
+
+const STATUS_CONFIG = {
+  open:     { label: "Mới",        bg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400", dot: "bg-emerald-500", icon: Inbox },
+  pending:  { label: "Đang xử lý", bg: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",   dot: "bg-amber-500",   icon: Clock },
+  resolved: { label: "Đã xử lý",   bg: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",      dot: "bg-blue-500",    icon: CheckCircle2 },
+  closed:   { label: "Đóng",       bg: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",      dot: "bg-slate-400",   icon: XCircle },
+} as const;
 
 export default function SupportDashboardPage() {
   const { session, user } = useAuth();
   const [conversations, setConversations] = useState<SupportConversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<SupportConversation | null>(null);
+  const [selected, setSelected] = useState<SupportConversation | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
-  const [message, setMessage] = useState("");
+  const [draft, setDraft] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [loadingConversations, setLoadingConversations] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [lockedBy, setLockedBy] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   const token = session?.access_token;
 
-  const fetchConversations = async () => {
+  // ── Data fetching ─────────────────────────────────────────────────────────
+  const fetchList = async (silent = false) => {
     if (!token) return;
+    if (!silent) setLoadingList(true);
     try {
-      setLoadingConversations(true);
       const res = await fetch(`${apiUrl}/api/support/conversations?status=${statusFilter}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error || "Không thể tải hội thoại.");
+      if (!json.success) throw new Error(json.error);
       setConversations(json.data || []);
-      if (!selectedConversation && json.data?.length) {
-        setSelectedConversation(json.data[0]);
-      }
-    } catch (err: any) {
-      setError(err.message || "Không thể tải hội thoại.");
+    } catch (e: any) {
+      if (!silent) setError(e.message);
     } finally {
-      setLoadingConversations(false);
+      if (!silent) setLoadingList(false);
     }
   };
 
-  const fetchMessages = async (conversationId: string, silent = false) => {
+  const fetchMessages = async (convId: string, silent = false) => {
     if (!token) return;
+    if (!silent) setLoadingMsgs(true);
     try {
-      if (!silent) setLoadingMessages(true);
-      const res = await fetch(`${apiUrl}/api/support/conversations/${conversationId}`, {
+      const res = await fetch(`${apiUrl}/api/support/conversations/${convId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error || "Không thể tải tin nhắn.");
-      setSelectedConversation(json.data.conversation);
+      if (!json.success) throw new Error(json.error);
+      setSelected(json.data.conversation);
       setMessages(json.data.messages || []);
-    } catch (err: any) {
-      if (!silent) setError(err.message || "Không thể tải tin nhắn.");
+    } catch (e: any) {
+      if (!silent) setError(e.message);
     } finally {
-      if (!silent) setLoadingMessages(false);
+      if (!silent) setLoadingMsgs(false);
     }
   };
 
-  useEffect(() => {
-    fetchConversations();
-  }, [token, statusFilter]);
+  // ── Effects ───────────────────────────────────────────────────────────────
+  useEffect(() => { fetchList(); }, [token, statusFilter]);
 
   useEffect(() => {
-    if (selectedConversation?.id) fetchMessages(selectedConversation.id);
-  }, [selectedConversation?.id, token]);
+    if (selected?.id) fetchMessages(selected.id);
+  }, [selected?.id, token]);
 
   useEffect(() => {
-    if (!selectedConversation?.id) return;
-    const interval = window.setInterval(() => {
-      fetchMessages(selectedConversation.id, true);
-      fetchConversations();
+    if (!selected?.id) return;
+    const iv = window.setInterval(() => {
+      fetchMessages(selected.id, true);
+      fetchList(true);
     }, 5000);
-    return () => window.clearInterval(interval);
-  }, [selectedConversation?.id, token, statusFilter]);
+    return () => clearInterval(iv);
+  }, [selected?.id, token, statusFilter]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, selectedConversation?.id]);
+  }, [messages.length]);
 
+  useEffect(() => {
+    setLockedBy(null);
+  }, [selected?.id]);
+
+  // ── Actions ───────────────────────────────────────────────────────────────
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!token || !selectedConversation?.id || !message.trim() || sending) return;
-
+    if (!token || !selected?.id || !draft.trim() || sending) return;
+    setSending(true);
+    setError("");
     try {
-      setSending(true);
-      const res = await fetch(`${apiUrl}/api/support/conversations/${selectedConversation.id}/messages`, {
+      const res = await fetch(`${apiUrl}/api/support/conversations/${selected.id}/messages`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content: message }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content: draft }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error || "Gửi tin nhắn thất bại.");
-      setMessage("");
+      if (res.status === 409) {
+        // Conversation already claimed by another staff
+        const staffId = json.data?.assigned_staff_id;
+        setLockedBy(staffId || "staff khác");
+        return;
+      }
+      if (!json.success) throw new Error(json.error);
+      setDraft("");
       setMessages((prev) => [...prev, json.data]);
-      fetchConversations();
-    } catch (err: any) {
-      setError(err.message || "Gửi tin nhắn thất bại.");
+      // After first reply, auto-assigned — refresh conversation
+      fetchMessages(selected.id, true);
+      fetchList(true);
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setSending(false);
     }
   };
 
   const updateStatus = async (status: SupportConversation["status"]) => {
-    if (!token || !selectedConversation?.id) return;
+    if (!token || !selected?.id) return;
     try {
-      const res = await fetch(`${apiUrl}/api/support/conversations/${selectedConversation.id}/status`, {
+      const res = await fetch(`${apiUrl}/api/support/conversations/${selected.id}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error || "Cập nhật trạng thái thất bại.");
-      setSelectedConversation(json.data);
-      fetchConversations();
-    } catch (err: any) {
-      setError(err.message || "Cập nhật trạng thái thất bại.");
+      if (!json.success) throw new Error(json.error);
+      setSelected(json.data);
+      fetchList(true);
+    } catch (e: any) {
+      setError(e.message);
     }
   };
 
-  const selectedUser = normalizeUser(selectedConversation?.user);
+  // ── Derived state ─────────────────────────────────────────────────────────
+  const customer = normalizeUser(selected?.user);
+  const assignedStaff = normalizeUser(selected?.assigned_staff);
+  const isAssignedToMe = selected?.assigned_staff_id === user?.id;
+  const isAssignedToOther = !!selected?.assigned_staff_id && !isAssignedToMe;
+  const isUnassigned = !selected?.assigned_staff_id;
+
+  const canReply = selected && selected.status !== "closed" && selected.status !== "resolved";
+
+  const statusCfg = selected ? STATUS_CONFIG[selected.status] : null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="flex h-[calc(100vh-88px)] flex-col gap-0">
+
+      {/* ── Page header ─────────────────────────────────────────────────── */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="flex items-center gap-3 text-2xl font-bold text-slate-900 dark:text-white">
-            <Headphones className="h-7 w-7 text-blue-600" />
-            Support Chat
+          <h1 className="flex items-center gap-2.5 text-xl font-bold text-slate-900 dark:text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <Headphones className="h-4.5 w-4.5" />
+            </div>
+            Hỗ trợ người dùng
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Trả lời hội thoại hỗ trợ từ người dùng theo thời gian gần thực.
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            Ai trả lời trước sẽ được nhận cuộc hội thoại đó
           </p>
         </div>
-        <button
-          onClick={() => fetchConversations()}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Làm mới
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            <option value="all">Tất cả</option>
+            <option value="open">Mới</option>
+            <option value="pending">Đang xử lý</option>
+            <option value="resolved">Đã xử lý</option>
+            <option value="closed">Đã đóng</option>
+          </select>
+          <button
+            onClick={() => fetchList()}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
+          <button onClick={() => setError("")} className="ml-auto text-red-400 hover:text-red-600">✕</button>
         </div>
       )}
 
-      <div className="grid h-[calc(100vh-210px)] min-h-[560px] grid-cols-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[340px_1fr]">
-        <aside className="flex min-h-0 flex-col border-b border-slate-200 dark:border-slate-800 lg:border-b-0 lg:border-r">
-          <div className="border-b border-slate-200 p-4 dark:border-slate-800">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="open">Mở</option>
-              <option value="pending">Đang xử lý</option>
-              <option value="resolved">Đã xử lý</option>
-              <option value="closed">Đã đóng</option>
-            </select>
+      {/* ── Main layout ──────────────────────────────────────────────────── */}
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+
+        {/* ── Conversation list ─────────────────────────────────────────── */}
+        <aside className="flex w-80 shrink-0 flex-col border-r border-slate-100 dark:border-slate-800">
+          <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {conversations.length} cuộc hội thoại
+            </p>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {loadingConversations ? (
-              <div className="flex h-full items-center justify-center text-slate-400">
-                <Loader2 className="h-5 w-5 animate-spin" />
+          <div className="flex-1 overflow-y-auto">
+            {loadingList ? (
+              <div className="flex h-32 items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
               </div>
             ) : conversations.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center p-6 text-center text-sm text-slate-500">
+              <div className="flex h-full flex-col items-center justify-center p-8 text-center">
                 <MessageCircle className="mb-3 h-10 w-10 text-slate-300" />
-                Chưa có hội thoại hỗ trợ.
+                <p className="text-sm text-slate-500">Chưa có hội thoại nào.</p>
               </div>
             ) : (
-              conversations.map((conversation) => {
-                const customer = normalizeUser(conversation.user);
-                const active = selectedConversation?.id === conversation.id;
+              conversations.map((conv) => {
+                const cust = normalizeUser(conv.user);
+                const aStaff = normalizeUser(conv.assigned_staff);
+                const active = selected?.id === conv.id;
+                const cfg = STATUS_CONFIG[conv.status];
+
                 return (
                   <button
-                    key={conversation.id}
-                    onClick={() => setSelectedConversation(conversation)}
-                    className={`w-full border-b border-slate-100 p-4 text-left transition-colors dark:border-slate-800 ${
-                      active ? "bg-blue-50 dark:bg-blue-950/30" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    key={conv.id}
+                    onClick={() => setSelected(conv)}
+                    className={`group w-full border-b border-slate-50 px-4 py-3.5 text-left transition-all dark:border-slate-800/60 ${
+                      active
+                        ? "bg-blue-50 dark:bg-blue-950/30"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                          {customer?.name || customer?.email || "Người dùng"}
-                        </p>
-                        <p className="truncate text-xs text-slate-500">{customer?.email}</p>
+                    <div className="flex items-start gap-3">
+                      {/* Avatar */}
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-xs font-bold text-slate-600 dark:from-slate-700 dark:to-slate-600 dark:text-slate-300">
+                        {initials(cust)}
                       </div>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        {statusLabels[conversation.status]}
-                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                            {cust?.name || cust?.email?.split("@")[0] || "Người dùng"}
+                          </p>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.bg}`}>
+                            {cfg.label}
+                          </span>
+                        </div>
+
+                        <p className="mt-0.5 truncate text-xs text-slate-400">{cust?.email}</p>
+
+                        <div className="mt-1.5 flex items-center justify-between">
+                          {aStaff ? (
+                            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                              <UserCheck className="h-3 w-3 text-emerald-500" />
+                              {aStaff.name || aStaff.email?.split("@")[0]}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium text-amber-500">Chưa nhận</span>
+                          )}
+                          <span className="text-[10px] text-slate-400">
+                            {conv.last_message_at ? timeAgo(conv.last_message_at) : timeAgo(conv.created_at)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="mt-2 text-[11px] text-slate-400">
-                      {conversation.last_message_at
-                        ? new Date(conversation.last_message_at).toLocaleString("vi-VN")
-                        : new Date(conversation.created_at).toLocaleString("vi-VN")}
-                    </p>
                   </button>
                 );
               })
@@ -259,51 +328,127 @@ export default function SupportDashboardPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col">
-          {selectedConversation ? (
+        {/* ── Chat panel ───────────────────────────────────────────────── */}
+        <section className="flex min-w-0 flex-1 flex-col">
+          {selected ? (
             <>
-              <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
-                <div>
-                  <p className="font-semibold text-slate-900 dark:text-white">
-                    {selectedUser?.name || selectedUser?.email || "Người dùng"}
-                  </p>
-                  <p className="text-xs text-slate-500">{selectedUser?.email}</p>
+              {/* Chat header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-xs font-bold text-blue-700 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300">
+                    {initials(customer)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                      {customer?.name || customer?.email?.split("@")[0] || "Người dùng"}
+                    </p>
+                    <p className="text-xs text-slate-400">{customer?.email}</p>
+                  </div>
                 </div>
-                <select
-                  value={selectedConversation.status}
-                  onChange={(e) => updateStatus(e.target.value as SupportConversation["status"])}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-950"
-                >
-                  <option value="open">Mở</option>
-                  <option value="pending">Đang xử lý</option>
-                  <option value="resolved">Đã xử lý</option>
-                  <option value="closed">Đã đóng</option>
-                </select>
+
+                <div className="flex items-center gap-2.5">
+                  {/* Assigned staff badge */}
+                  {assignedStaff && (
+                    <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
+                      <UserCheck className="h-3.5 w-3.5" />
+                      {isAssignedToMe ? "Bạn đang xử lý" : (assignedStaff.name || assignedStaff.email?.split("@")[0])}
+                    </div>
+                  )}
+                  {isUnassigned && (
+                    <div className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                      <Clock className="h-3.5 w-3.5" />
+                      Chưa được nhận
+                    </div>
+                  )}
+
+                  {/* Status selector */}
+                  <select
+                    value={selected.status}
+                    onChange={(e) => updateStatus(e.target.value as SupportConversation["status"])}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  >
+                    <option value="open">Mới</option>
+                    <option value="pending">Đang xử lý</option>
+                    <option value="resolved">Đã xử lý</option>
+                    <option value="closed">Đóng</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-5">
-                {loadingMessages ? (
-                  <div className="flex h-full items-center justify-center text-slate-400">
-                    <Loader2 className="h-5 w-5 animate-spin" />
+              {/* Assignment info banner */}
+              {isUnassigned && canReply && (
+                <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2.5 text-xs text-amber-700 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400">
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                  Trả lời trước để nhận cuộc hội thoại này.
+                </div>
+              )}
+              {isAssignedToOther && (
+                <div className="flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-5 py-2.5 text-xs text-rose-700 dark:border-rose-900/30 dark:bg-rose-950/20 dark:text-rose-400">
+                  <Lock className="h-3.5 w-3.5 shrink-0" />
+                  Cuộc hội thoại này đang được xử lý bởi{" "}
+                  <span className="font-semibold">{assignedStaff?.name || assignedStaff?.email?.split("@")[0]}</span>.
+                  Chỉ Admin mới có thể can thiệp.
+                </div>
+              )}
+              {lockedBy && (
+                <div className="flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-5 py-2.5 text-xs text-rose-700 dark:border-rose-900/30 dark:bg-rose-950/20 dark:text-rose-400">
+                  <Lock className="h-3.5 w-3.5 shrink-0" />
+                  Không thể gửi — cuộc hội thoại đã được nhận bởi staff khác.
+                </div>
+              )}
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                {loadingMsgs ? (
+                  <div className="flex h-full items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
+                  <div className="flex h-full flex-col items-center justify-center text-center">
                     <MessageCircle className="mb-3 h-12 w-12 text-slate-300" />
-                    Hội thoại chưa có tin nhắn.
+                    <p className="text-sm text-slate-400">Chưa có tin nhắn. Hãy là người đầu tiên phản hồi!</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {messages.map((msg) => {
-                      const mine = msg.sender_id === user?.id || msg.sender_type === "admin" || msg.sender_type === "staff";
+                      const isMe = msg.sender_id === user?.id;
+                      const isCustomer = msg.sender_type === "customer";
+                      const isOtherStaff = !isMe && !isCustomer;
+                      const sender = normalizeUser(msg.sender);
+
+                      // Alignment: tôi → phải | khách/staff khác → trái
+                      const alignRight = isMe;
+
+                      // Bubble style
+                      let bubbleClass = "";
+                      let timeClass = "";
+                      if (isMe) {
+                        bubbleClass = "bg-blue-600 text-white";
+                        timeClass  = "text-blue-200";
+                      } else if (isOtherStaff) {
+                        bubbleClass = "bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100";
+                        timeClass  = "text-violet-400";
+                      } else {
+                        bubbleClass = "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100";
+                        timeClass  = "text-slate-400";
+                      }
+
+                      // Sender label
+                      let senderLabel = "";
+                      if (isMe) {
+                        senderLabel = "Bạn";
+                      } else if (isOtherStaff) {
+                        senderLabel = sender?.name || sender?.email?.split("@")[0] || "Staff";
+                      } else {
+                        senderLabel = sender?.name || sender?.email?.split("@")[0] || "Khách hàng";
+                      }
+
                       return (
-                        <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[72%] rounded-2xl px-4 py-2 text-sm ${
-                            mine
-                              ? "bg-blue-600 text-white"
-                              : "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
-                          }`}>
+                        <div key={msg.id} className={`flex flex-col ${alignRight ? "items-end" : "items-start"}`}>
+                          <p className="mb-1 px-1 text-[10px] text-slate-400">{senderLabel}</p>
+                          <div className={`max-w-[68%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${bubbleClass}`}>
                             <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                            <p className={`mt-1 text-[10px] ${mine ? "text-blue-100" : "text-slate-400"}`}>
+                            <p className={`mt-1.5 text-[10px] ${timeClass}`}>
                               {new Date(msg.created_at).toLocaleString("vi-VN")}
                             </p>
                           </div>
@@ -315,34 +460,56 @@ export default function SupportDashboardPage() {
                 )}
               </div>
 
-              <form onSubmit={sendMessage} className="flex items-end gap-3 border-t border-slate-200 p-4 dark:border-slate-800">
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Nhập phản hồi cho người dùng..."
-                  rows={1}
-                  className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={!message.trim() || sending}
-                  className="flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Gửi
-                </button>
-              </form>
+              {/* Input */}
+              <div className="border-t border-slate-100 p-4 dark:border-slate-800">
+                {!canReply ? (
+                  <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 py-3 text-sm text-slate-400 dark:bg-slate-800">
+                    <XCircle className="h-4 w-4" />
+                    Cuộc hội thoại đã {selected.status === "closed" ? "đóng" : "xử lý xong"}.
+                  </div>
+                ) : (
+                  <form onSubmit={sendMessage} className="flex items-end gap-2.5">
+                    <textarea
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder={
+                        isAssignedToOther
+                          ? "Bạn không thể trả lời cuộc hội thoại này..."
+                          : isUnassigned
+                          ? "Trả lời để nhận cuộc hội thoại..."
+                          : "Nhập phản hồi... (Enter để gửi)"
+                      }
+                      disabled={isAssignedToOther}
+                      rows={1}
+                      className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:focus:bg-slate-800"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!draft.trim() || sending || isAssignedToOther}
+                      className="flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:opacity-40"
+                    >
+                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Gửi
+                    </button>
+                  </form>
+                )}
+              </div>
             </>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
-              <Headphones className="mb-4 h-14 w-14 text-slate-300" />
-              Chọn một hội thoại để bắt đầu hỗ trợ.
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800">
+                <Headphones className="h-8 w-8 text-slate-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-700 dark:text-slate-300">Chọn cuộc hội thoại</p>
+                <p className="mt-1 text-sm text-slate-400">để bắt đầu hỗ trợ người dùng</p>
+              </div>
             </div>
           )}
         </section>

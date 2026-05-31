@@ -28,33 +28,32 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ─── Dark Admin Theme (default) ─── */
+/* ─── Light Admin Theme ─── */
 :root {
-  --background: oklch(0.07 0.012 260);       /* Deep Navy-Slate */
-  --foreground: oklch(0.95 0.008 260);
-  --card: oklch(0.10 0.013 260);
-  --card-foreground: oklch(0.95 0.008 260);
-  --popover: oklch(0.09 0.013 260);
-  --popover-foreground: oklch(0.95 0.008 260);
-  --primary: oklch(0.72 0.11 340);           /* GU.AI Rose Gold */
-  --primary-foreground: oklch(0.07 0.012 260);
-  --secondary: oklch(0.13 0.014 260);
-  --secondary-foreground: oklch(0.85 0.008 260);
-  --muted: oklch(0.12 0.012 260);
-  --muted-foreground: oklch(0.55 0.01 260);
-  --accent: oklch(0.15 0.016 260);
-  --accent-foreground: oklch(0.95 0.008 260);
-  --destructive: oklch(0.65 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.18 0.014 260);
-  --input: oklch(0.14 0.013 260);
-  --ring: oklch(0.72 0.11 340);
+  --background: oklch(0.975 0.007 340);
+  --foreground: oklch(0.13 0.015 340);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.13 0.015 340);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.13 0.015 340);
+  --primary: oklch(0.55 0.12 340);
+  --primary-foreground: oklch(0.99 0.005 340);
+  --secondary: oklch(0.955 0.012 340);
+  --secondary-foreground: oklch(0.22 0.025 340);
+  --muted: oklch(0.955 0.012 340);
+  --muted-foreground: oklch(0.48 0.025 340);
+  --accent: oklch(0.955 0.012 340);
+  --accent-foreground: oklch(0.22 0.025 340);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.89 0.013 340);
+  --input: oklch(0.955 0.01 340);
+  --ring: oklch(0.55 0.12 340);
   --radius: 0.625rem;
-  --sidebar: oklch(0.065 0.012 260);
-  --sidebar-border: oklch(0.15 0.012 260);
-  --success: oklch(0.65 0.14 145);
-  --warning: oklch(0.75 0.16 75);
-  --info: oklch(0.65 0.15 220);
+  --sidebar: oklch(0.995 0.005 340);
+  --sidebar-border: oklch(0.9 0.012 340);
+  --success: oklch(0.58 0.16 145);
+  --warning: oklch(0.68 0.17 75);
 }
 
 @layer base {
@@ -66,77 +65,103 @@
     background-color: var(--background);
     color: var(--foreground);
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
   }
 
   ::selection {
-    background-color: oklch(0.72 0.11 340 / 0.3);
-    color: oklch(0.95 0.008 260);
+    background-color: oklch(0.55 0.12 340 / 0.15);
+    color: oklch(0.13 0.015 340);
   }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: oklch(0.25 0.02 260);
+    background: oklch(0.82 0.018 340);
     border-radius: 3px;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.35 0.04 260);
-  }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(0.70 0.04 340); }
 }
 
 /* ─── Animations ─── */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-16px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes slide-out-right {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes overlay-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes scale-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.96); }
 }
 
 @keyframes shimmer {
   from { background-position: -200% 0; }
-  to { background-position: 200% 0; }
+  to   { background-position:  200% 0; }
 }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.72 0.11 340 / 0); }
-  50% { box-shadow: 0 0 20px 4px oklch(0.72 0.11 340 / 0.25); }
-}
+.animate-fade-in   { animation: fade-in 0.3s ease-out forwards; }
+.animate-slide-left { animation: slide-in-left 0.25s ease-out forwards; }
 
-.animate-fade-in {
-  animation: fade-in 0.35s ease-out forwards;
-}
+/* ─── Sheet (side drawer) ─── */
+[data-slot="sheet-overlay"][data-state="open"]  { animation: overlay-in  0.2s ease-out; }
+[data-slot="sheet-overlay"][data-state="closed"] { animation: overlay-out 0.15s ease-in forwards; }
+[data-slot="sheet-content"][data-state="open"]  { animation: slide-in-right 0.3s cubic-bezier(0.16,1,0.3,1); }
+[data-slot="sheet-content"][data-state="closed"] { animation: slide-out-right 0.2s ease-in forwards; }
 
-.animate-slide-left {
-  animation: slide-in-left 0.3s ease-out forwards;
-}
+/* ─── Dialog (modal) ─── */
+[data-slot="dialog-overlay"][data-state="open"]  { animation: overlay-in 0.15s ease-out; }
+[data-slot="dialog-overlay"][data-state="closed"] { animation: overlay-out 0.1s ease-in forwards; }
+[data-slot="dialog-content"][data-state="open"]  { animation: scale-in 0.2s cubic-bezier(0.16,1,0.3,1); }
+[data-slot="dialog-content"][data-state="closed"] { animation: scale-out 0.15s ease-in forwards; }
 
+/* ─── Dropdown ─── */
+[data-slot="dropdown-content"][data-state="open"]  { animation: fade-in  0.12s ease-out; }
+[data-slot="dropdown-content"][data-state="closed"] { animation: overlay-out 0.08s ease-in forwards; }
+
+/* ─── Skeleton ─── */
 .skeleton {
   background: linear-gradient(
     90deg,
-    oklch(0.14 0.012 260) 25%,
-    oklch(0.18 0.014 260) 50%,
-    oklch(0.14 0.012 260) 75%
+    oklch(0.94 0.01 340) 25%,
+    oklch(0.97 0.007 340) 50%,
+    oklch(0.94 0.01 340) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.4s infinite;
 }
 
-/* ─── Admin glass card ─── */
-.glass-card {
-  background: oklch(0.10 0.013 260 / 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid oklch(0.18 0.014 260 / 0.7);
-}
-
-/* ─── Sidebar glow line ─── */
-.sidebar-active-glow {
-  box-shadow: inset 3px 0 0 oklch(0.72 0.11 340);
+/* ─── Sidebar active glow ─── */
+.sidebar-active {
+  background: oklch(0.55 0.12 340 / 0.08);
+  color: oklch(0.55 0.12 340);
+  box-shadow: inset 3px 0 0 oklch(0.55 0.12 340);
 }

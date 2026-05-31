@@ -8,18 +8,13 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Headphones,
-  Settings,
   LogOut,
   Bell,
   Sparkles,
   Menu,
   X
 } from "lucide-react";
-
-interface UserInfo {
-  name: string;
-  email: string;
-}
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function DashboardLayout({
   children,
@@ -28,22 +23,17 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [admin, setAdmin] = useState<UserInfo | null>(null);
+  const { session, isAdmin, loading, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("admin_token");
-    const userStr = localStorage.getItem("admin_user");
-    if (!token || !userStr) {
+    if (!loading && (!session || !isAdmin)) {
       router.replace("/login");
-    } else {
-      setAdmin(JSON.parse(userStr));
     }
-  }, [router]);
+  }, [loading, session, isAdmin, router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_token");
-    localStorage.removeItem("admin_user");
+  const handleLogout = async () => {
+    await signOut();
     router.replace("/login");
   };
 
@@ -54,13 +44,28 @@ export default function DashboardLayout({
     { name: "Phân quyền & Vai trò", href: "/dashboard/roles", icon: ShieldCheck },
   ];
 
-  if (!admin) {
+  // Hiển thị spinner khi đang xác thực
+  if (loading || !session || !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
       </div>
     );
   }
+
+  const adminName =
+    session.user.user_metadata?.full_name ||
+    session.user.user_metadata?.name ||
+    session.user.email?.split("@")[0] ||
+    "Admin";
+  const adminEmail = session.user.email || "";
+
+  const breadcrumb: Record<string, string> = {
+    "/dashboard": "Tổng quan",
+    "/dashboard/users": "Quản lý Người dùng",
+    "/dashboard/support": "Hỗ trợ người dùng",
+    "/dashboard/roles": "Phân quyền",
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
@@ -81,13 +86,12 @@ export default function DashboardLayout({
       </header>
 
       <div className="flex">
-        {/* Sidebar desktop */}
+        {/* Sidebar */}
         <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform border-r border-slate-200 bg-white p-6 transition-transform duration-300 md:static md:translate-x-0 dark:border-slate-800 dark:bg-slate-900 ${
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}>
           <div className="flex flex-col h-full justify-between">
             <div>
-              {/* Logo */}
               <div className="flex items-center gap-3 border-b border-slate-100 pb-6 dark:border-slate-800">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-black shadow-md shadow-blue-500/10">
                   <Sparkles className="h-5 w-5" />
@@ -98,7 +102,6 @@ export default function DashboardLayout({
                 </div>
               </div>
 
-              {/* Nav menu */}
               <nav className="mt-8 space-y-1">
                 <span className="px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   Hệ thống
@@ -126,15 +129,14 @@ export default function DashboardLayout({
               </nav>
             </div>
 
-            {/* User Profile & Logout */}
             <div className="border-t border-slate-100 pt-6 dark:border-slate-800">
               <div className="flex items-center gap-3 px-2 mb-4">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  {admin.name.charAt(0)}
+                  {adminName.charAt(0).toUpperCase()}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-sm font-semibold truncate text-slate-900 dark:text-white">{admin.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{admin.email}</p>
+                  <p className="text-sm font-semibold truncate text-slate-900 dark:text-white">{adminName}</p>
+                  <p className="text-xs text-slate-400 truncate">{adminEmail}</p>
                 </div>
               </div>
               <button
@@ -150,23 +152,22 @@ export default function DashboardLayout({
 
         {/* Content wrapper */}
         <div className="flex-1 min-h-screen flex flex-col overflow-x-hidden">
-          {/* Header */}
           <header className="hidden h-16 items-center justify-between border-b border-slate-200 bg-white px-8 md:flex dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <span>Hệ thống</span>
               <span>/</span>
               <span className="font-semibold text-slate-800 dark:text-slate-200">
-                {pathname === "/dashboard" ? "Tổng quan" : pathname === "/dashboard/users" ? "Quản lý Người dùng" : pathname === "/dashboard/support" ? "Hỗ trợ người dùng" : "Phân quyền"}
+                {breadcrumb[pathname] || "Tổng quan"}
               </span>
             </div>
             <div className="flex items-center gap-4">
               <button className="relative rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
                 <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-blue-600"></span>
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-blue-600" />
               </button>
               <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-800" />
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{admin.name}</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{adminName}</span>
                 <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
                   Admin
                 </span>
@@ -174,7 +175,6 @@ export default function DashboardLayout({
             </div>
           </header>
 
-          {/* Page Content */}
           <main className="flex-1 p-6 md:p-8">
             {children}
           </main>

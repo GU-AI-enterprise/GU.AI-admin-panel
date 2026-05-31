@@ -9,6 +9,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  userRole: string | null;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -20,6 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     // Get initial session
@@ -36,8 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select('role')
             .eq('id', session.user.id)
             .single();
-          
-          setIsAdmin(userData?.role === 'admin');
+
+          setUserRole(userData?.role || null);
+          setIsAdmin(userData?.role === 'admin' || userData?.role === 'staff');
         }
       } catch (error) {
         console.error("Error getting initial session:", error);
@@ -62,9 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select('role')
             .eq('id', session.user.id)
             .single();
-          
-          setIsAdmin(userData?.role === 'admin');
+
+          setUserRole(userData?.role || null);
+          setIsAdmin(userData?.role === 'admin' || userData?.role === 'staff');
         } else {
+          setUserRole(null);
           setIsAdmin(false);
         }
         
@@ -88,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, signOut, refreshSession }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, userRole, signOut, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

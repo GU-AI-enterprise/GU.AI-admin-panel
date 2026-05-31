@@ -1,476 +1,811 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
-  Search,
-  UserPlus,
-  Filter,
-  MoreVertical,
-  Trash2,
-  Lock,
-  Unlock,
-  CheckCircle2,
-  X,
-  UserCheck,
-  Mail,
-  Shield,
-  Calendar,
-  AlertCircle
+  Search, RefreshCw, Users, UserCheck, UserX,
+  Shield, Headphones, ChevronLeft, ChevronRight,
+  Lock, Unlock, Trash2, Crown, ChevronDown,
+  AlertTriangle, User as UserIcon, Sparkles,
+  Mail, Calendar, CreditCard, Globe, Loader2,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
-interface User {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface AdminUser {
   id: string;
-  name: string;
   email: string;
-  role: "Admin" | "Manager" | "Support" | "User";
-  status: "active" | "pending" | "locked";
-  joined: string;
+  name: string | null;
+  avatar_url: string | null;
+  role: "customer" | "staff" | "admin";
+  status: "active" | "locked";
+  provider: string | null;
+  plan_type: string | null;
+  current_credit: number;
+  created_at: string;
+  updated_at: string;
 }
 
-const initialUsers: User[] = [
-  { id: "US-001", name: "Nguyễn Minh Anh", email: "minhanh@example.com", role: "Admin", status: "active", joined: "22/05/2026" },
-  { id: "US-002", name: "Trần Quốc Huy", email: "quochuy@example.com", role: "Manager", status: "active", joined: "18/05/2026" },
-  { id: "US-003", name: "Lê Hoàng Nam", email: "hoangnam@example.com", role: "User", status: "pending", joined: "16/05/2026" },
-  { id: "US-004", name: "Phạm Gia Linh", email: "gialinh@example.com", role: "Support", status: "active", joined: "11/05/2026" },
-  { id: "US-005", name: "Vũ Hải Đăng", email: "haidang@example.com", role: "User", status: "locked", joined: "03/05/2026" },
-  { id: "US-006", name: "Đỗ Thùy Trang", email: "thuytrang@example.com", role: "User", status: "active", joined: "28/04/2026" },
-  { id: "US-007", name: "Hoàng Văn Đức", email: "vanduc@example.com", role: "User", status: "pending", joined: "25/04/2026" },
-];
+interface UserStats {
+  total: number;
+  active: number;
+  locked: number;
+  byRole: { customer: number; staff: number; admin: number };
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function displayName(u: AdminUser) {
+  return u.name || u.email.split("@")[0];
+}
+
+function initials(u: AdminUser) {
+  const n = displayName(u);
+  return n.charAt(0).toUpperCase();
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("vi-VN", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+  });
+}
+
+function formatDatetime(iso: string) {
+  return new Date(iso).toLocaleString("vi-VN", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+const ROLE_CONFIG = {
+  admin:    { label: "Admin",    variant: "violet",  icon: Crown },
+  staff:    { label: "Staff",    variant: "blue",    icon: Headphones },
+  customer: { label: "Customer", variant: "slate",   icon: UserIcon },
+} as const;
+
+const PROVIDER_LABELS: Record<string, string> = {
+  google: "Google",
+  github: "GitHub",
+  email:  "Email / Password",
+};
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function RoleBadge({ role }: { role: string }) {
+  const cfg = ROLE_CONFIG[role as keyof typeof ROLE_CONFIG] ?? ROLE_CONFIG.customer;
+  const Icon = cfg.icon;
+  return (
+    <Badge variant={cfg.variant as any}>
+      <Icon className="size-3" />
+      {cfg.label}
+    </Badge>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "locked")
+    return (
+      <Badge variant="destructive">
+        <span className="size-1.5 rounded-full bg-destructive" />
+        Đã khóa
+      </Badge>
+    );
+  return (
+    <Badge variant="success">
+      <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
+      Hoạt động
+    </Badge>
+  );
+}
+
+function StatCard({
+  label, value, icon: Icon, className,
+}: {
+  label: string; value: number | undefined; icon: React.ElementType; className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center gap-3 rounded-xl border border-border bg-card p-4", className)}>
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent">
+        <Icon className="size-5 text-muted-foreground" />
+      </div>
+      <div>
+        <p className="text-xl font-bold text-foreground">{value ?? "—"}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Role Dropdown (in table row) ───────────────────────────────────────────────
+
+function RoleDropdown({ userId, currentRole, onUpdate, disabled }: {
+  userId: string; currentRole: string;
+  onUpdate: (id: string, role: string) => Promise<void>;
+  disabled?: boolean;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  if (disabled) return <RoleBadge role={currentRole} />;
+
+  const handleSelect = async (role: string) => {
+    if (role === currentRole) return;
+    setLoading(true);
+    await onUpdate(userId, role);
+    setLoading(false);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center gap-1 rounded-lg p-1 transition-colors hover:bg-accent focus:outline-none">
+          <RoleBadge role={currentRole} />
+          {loading
+            ? <Loader2 className="size-3 animate-spin text-muted-foreground" />
+            : <ChevronDown className="size-3 text-muted-foreground" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>Đổi vai trò</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {(["customer", "staff", "admin"] as const).map((r) => {
+          const cfg = ROLE_CONFIG[r];
+          const Icon = cfg.icon;
+          return (
+            <DropdownMenuItem
+              key={r}
+              onSelect={() => handleSelect(r)}
+              className={cn(
+                r === currentRole && "bg-accent",
+                r === "admin" && "text-violet-400",
+                r === "staff" && "text-blue-400",
+              )}
+            >
+              <Icon className="size-4" />
+              {cfg.label}
+              {r === currentRole && (
+                <span className="ml-auto text-[10px] text-muted-foreground">Hiện tại</span>
+              )}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// ── Delete Dialog ──────────────────────────────────────────────────────────────
+
+function DeleteDialog({ user, open, onConfirm, onClose, isDeleting }: {
+  user: AdminUser | null; open: boolean;
+  onConfirm: () => void; onClose: () => void; isDeleting: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent showClose={false} className="max-w-sm">
+        <DialogHeader>
+          <div className="flex items-start gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+              <AlertTriangle className="size-5 text-destructive" />
+            </div>
+            <div>
+              <DialogTitle>Xóa tài khoản vĩnh viễn?</DialogTitle>
+              <DialogDescription className="mt-1">
+                Tài khoản{" "}
+                <span className="font-semibold text-foreground">{user ? displayName(user) : ""}</span>{" "}
+                sẽ bị xóa hoàn toàn. Hành động này không thể hoàn tác.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isDeleting}>
+            Hủy bỏ
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} loading={isDeleting}>
+            <Trash2 className="size-4" />
+            Xóa vĩnh viễn
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── User Detail Sheet ──────────────────────────────────────────────────────────
+
+function UserSheet({ user, open, onClose, viewerRole, onUpdateRole, onUpdateStatus, onDeleteClick, isUpdating }: {
+  user: AdminUser | null; open: boolean; onClose: () => void;
+  viewerRole: string | null;
+  onUpdateRole: (id: string, role: string) => Promise<void>;
+  onUpdateStatus: (id: string, status: string) => Promise<void>;
+  onDeleteClick: (user: AdminUser) => void;
+  isUpdating: boolean;
+}) {
+  if (!user) return null;
+  const isViewerAdmin = viewerRole === "admin";
+  const isLocked = user.status === "locked";
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Chi tiết tài khoản</SheetTitle>
+        </SheetHeader>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Profile hero */}
+          <div className="flex flex-col items-center gap-3 bg-gradient-to-b from-accent/40 to-transparent px-6 py-8">
+            <Avatar className="size-20 ring-4 ring-border">
+              <AvatarImage src={user.avatar_url ?? undefined} alt={displayName(user)} />
+              <AvatarFallback className="text-2xl font-bold">{initials(user)}</AvatarFallback>
+            </Avatar>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-foreground">{displayName(user)}</p>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              <RoleBadge role={user.role} />
+              <StatusBadge status={user.status} />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Info rows */}
+          <div className="space-y-0 px-6 py-2">
+            <InfoRow label="ID" icon={<UserIcon className="size-3.5" />}>
+              <span className="font-mono text-xs text-muted-foreground truncate max-w-[160px]" title={user.id}>
+                {user.id.slice(0, 8)}…{user.id.slice(-4)}
+              </span>
+            </InfoRow>
+            <InfoRow label="Đăng nhập" icon={<Globe className="size-3.5" />}>
+              <Badge variant="outline" className="text-[10px]">
+                {PROVIDER_LABELS[user.provider ?? "email"] ?? user.provider ?? "—"}
+              </Badge>
+            </InfoRow>
+            <InfoRow label="Gói dịch vụ" icon={<Sparkles className="size-3.5" />}>
+              <span className="text-sm font-medium capitalize">{user.plan_type || "Free"}</span>
+            </InfoRow>
+            <InfoRow label="Số dư credit" icon={<CreditCard className="size-3.5" />}>
+              <span className="text-sm font-semibold text-foreground">
+                {(user.current_credit ?? 0).toLocaleString()}
+              </span>
+            </InfoRow>
+            <InfoRow label="Tham gia" icon={<Calendar className="size-3.5" />}>
+              <span className="text-sm">{formatDate(user.created_at)}</span>
+            </InfoRow>
+            <InfoRow label="Cập nhật" icon={<Calendar className="size-3.5" />}>
+              <span className="text-sm">{formatDatetime(user.updated_at)}</span>
+            </InfoRow>
+          </div>
+
+          {/* Role selector (admin only) */}
+          {isViewerAdmin && (
+            <>
+              <Separator />
+              <div className="px-6 py-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Thay đổi vai trò
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["customer", "staff", "admin"] as const).map((r) => {
+                    const cfg = ROLE_CONFIG[r];
+                    const Icon = cfg.icon;
+                    const isActive = user.role === r;
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => onUpdateRole(user.id, r)}
+                        disabled={isUpdating || isActive}
+                        className={cn(
+                          "flex flex-col items-center gap-1.5 rounded-xl border py-3 text-xs font-semibold transition-all disabled:opacity-60",
+                          isActive
+                            ? r === "admin" ? "border-violet-500/40 bg-violet-500/10 text-violet-400"
+                              : r === "staff" ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
+                              : "border-border bg-accent text-foreground"
+                            : "border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="size-4" />
+                        {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        <div className="border-t border-border px-6 py-4 space-y-2">
+          <Button
+            variant={isLocked ? "success" : "warning"}
+            className="w-full"
+            onClick={() => onUpdateStatus(user.id, isLocked ? "active" : "locked")}
+            loading={isUpdating}
+          >
+            {!isUpdating && (isLocked ? <Unlock className="size-4" /> : <Lock className="size-4" />)}
+            {isLocked ? "Mở khóa tài khoản" : "Khóa tài khoản"}
+          </Button>
+
+          {isViewerAdmin && (
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={() => { onDeleteClick(user); onClose(); }}
+            >
+              <Trash2 className="size-4" />
+              Xóa vĩnh viễn
+            </Button>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function InfoRow({ label, icon, children }: {
+  label: string; icon: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      <div className="text-right">{children}</div>
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function UsersManagement() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const { session, userRole } = useAuth();
+  const token = session?.access_token;
+  const isViewerAdmin = userRole === "admin";
+
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  // State Modal Thêm User mới
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-  const [newRole, setNewRole] = useState<"Admin" | "Manager" | "Support" | "User">("User");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // State Modal Xem Chi Tiết User
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [sheetUser, setSheetUser] = useState<AdminUser | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  // Lọc danh sách người dùng
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase()) ||
-      user.id.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+  const fetchStats = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/admin/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) setStats(json.data);
+    } catch {}
+  }, [token]);
 
-  // Xử lý Thay đổi Trạng thái tài khoản
-  const handleUpdateStatus = (id: string, newStatus: "active" | "pending" | "locked") => {
-    setUsers(users.map((u) => (u.id === id ? { ...u, status: newStatus } : u)));
-    if (selectedUser?.id === id) {
-      setSelectedUser({ ...selectedUser, status: newStatus });
-    }
+  const fetchUsers = useCallback(async (silent = false) => {
+    if (!token) return;
+    if (!silent) setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(page), limit: String(limit),
+        ...(search && { search }),
+        ...(roleFilter !== "all" && { role: roleFilter }),
+        ...(statusFilter !== "all" && { status: statusFilter }),
+      });
+      const res = await fetch(`${API_URL}/api/admin/users?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setUsers(json.data.users);
+        setTotal(json.data.total);
+        setTotalPages(json.data.totalPages);
+      }
+    } catch {}
+    finally { setIsLoading(false); }
+  }, [token, page, limit, search, roleFilter, statusFilter]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const refresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([fetchStats(), fetchUsers(true)]);
+    setIsRefreshing(false);
   };
 
-  // Xóa tài khoản
-  const handleDeleteUser = (id: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa tài khoản này khỏi hệ thống?")) {
-      setUsers(users.filter((u) => u.id !== id));
-      setSelectedUser(null);
-    }
+  const handleUpdateRole = async (id: string, role: string) => {
+    if (!token) return;
+    setUpdatingId(id);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ role }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const update = (u: AdminUser) => u.id === id ? { ...u, role: json.data.role } : u;
+        setUsers((prev) => prev.map(update));
+        setSheetUser((prev) => prev?.id === id ? { ...prev, role: json.data.role } : prev);
+        fetchStats();
+      }
+    } catch {}
+    setUpdatingId(null);
   };
 
-  // Tạo người dùng mới
-  const handleCreateUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName || !newEmail) return;
+  const handleUpdateStatus = async (id: string, status: string) => {
+    if (!token) return;
+    setUpdatingId(id);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const update = (u: AdminUser) => u.id === id ? { ...u, status: json.data.status } : u;
+        setUsers((prev) => prev.map(update));
+        setSheetUser((prev) => prev?.id === id ? { ...prev, status: json.data.status } : prev);
+        fetchStats();
+      }
+    } catch {}
+    setUpdatingId(null);
+  };
 
-    const newUser: User = {
-      id: `US-0${users.length + 1}`,
-      name: newName,
-      email: newEmail,
-      role: newRole,
-      status: "active",
-      joined: new Date().toLocaleDateString("vi-VN"),
-    };
+  const handleDelete = async () => {
+    if (!token || !deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+        setSheetOpen(false);
+        fetchStats();
+      }
+    } catch {}
+    setIsDeleting(false);
+    setDeleteOpen(false);
+    setDeleteTarget(null);
+  };
 
-    setUsers([newUser, ...users]);
-    setIsAddOpen(false);
-    setNewName("");
-    setNewEmail("");
-    setNewRole("User");
+  const openSheet = (user: AdminUser) => {
+    setSheetUser(user);
+    setSheetOpen(true);
+  };
+
+  const openDelete = (user: AdminUser) => {
+    setDeleteTarget(user);
+    setDeleteOpen(true);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Quản lý người dùng</h1>
-          <p className="text-sm text-slate-500">Xem danh sách, phê duyệt, phân quyền hoặc khóa tài khoản của người dùng.</p>
+          <h1 className="text-2xl font-bold text-foreground">Quản lý người dùng</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Xem, phân quyền và quản lý tất cả tài khoản trong hệ thống.
+          </p>
         </div>
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/10 hover:bg-blue-700 active:scale-[0.98] transition-all"
-        >
-          <UserPlus className="h-4 w-4" />
-          Thêm người dùng
-        </button>
+        <Button variant="outline" onClick={refresh} loading={isRefreshing} size="md">
+          <RefreshCw className={cn("size-4", isRefreshing && "animate-spin")} />
+          Làm mới
+        </Button>
       </div>
 
-      {/* Tìm kiếm và Bộ lọc */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 md:flex-row md:items-center dark:border-slate-800 dark:bg-slate-900">
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <StatCard label="Tổng tài khoản" value={stats?.total}     icon={Users}      />
+        <StatCard label="Đang hoạt động" value={stats?.active}    icon={UserCheck}  className="border-emerald-500/20 bg-emerald-500/5" />
+        <StatCard label="Đã khóa"        value={stats?.locked}    icon={UserX}      className="border-destructive/20 bg-destructive/5" />
+        <StatCard label="Customer"        value={stats?.byRole.customer} icon={UserIcon}  />
+        <StatCard label="Staff"           value={stats?.byRole.staff}    icon={Headphones} className="border-blue-500/20 bg-blue-500/5" />
+        <StatCard label="Admin"           value={stats?.byRole.admin}    icon={Crown}      className="border-violet-500/20 bg-violet-500/5" />
+      </div>
+
+      {/* ── Filters ── */}
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 md:flex-row md:items-center">
         <div className="relative flex-1">
-          <Search className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Tìm theo tên, email hoặc mã tài khoản..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-11 pr-4 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-800/40 dark:text-white"
+            placeholder="Tìm theo tên hoặc email..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/20"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/40 text-slate-500">
-            <Filter className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase">Lọc</span>
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Đang hoạt động</option>
-            <option value="pending">Chờ duyệt</option>
-            <option value="locked">Đã khóa</option>
-          </select>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-          >
-            <option value="all">Tất cả vai trò</option>
-            <option value="Admin">Admin</option>
-            <option value="Manager">Manager</option>
-            <option value="Support">Support</option>
-            <option value="User">User</option>
-          </select>
+        <div className="flex flex-wrap gap-2">
+          {[
+            {
+              value: roleFilter, onChange: (v: string) => { setRoleFilter(v); setPage(1); },
+              options: [
+                { value: "all",      label: "Tất cả vai trò" },
+                { value: "admin",    label: "Admin" },
+                { value: "staff",    label: "Staff" },
+                { value: "customer", label: "Customer" },
+              ],
+            },
+            {
+              value: statusFilter, onChange: (v: string) => { setStatusFilter(v); setPage(1); },
+              options: [
+                { value: "all",    label: "Tất cả trạng thái" },
+                { value: "active", label: "Hoạt động" },
+                { value: "locked", label: "Đã khóa" },
+              ],
+            },
+            {
+              value: String(limit), onChange: (v: string) => { setLimit(Number(v)); setPage(1); },
+              options: [
+                { value: "10", label: "10 / trang" },
+                { value: "20", label: "20 / trang" },
+                { value: "50", label: "50 / trang" },
+              ],
+            },
+          ].map((sel, i) => (
+            <select
+              key={i}
+              value={sel.value}
+              onChange={(e) => sel.onChange(e.target.value)}
+              className="rounded-lg border border-border bg-input px-3 py-2.5 text-sm text-foreground outline-none focus:border-ring"
+            >
+              {sel.options.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          ))}
         </div>
       </div>
 
-      {/* Bảng Danh sách Người dùng */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      {/* ── Table ── */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-900/50">
-                <th className="py-4 px-6">ID</th>
-                <th className="py-4 px-6">Họ tên / Email</th>
-                <th className="py-4 px-6">Vai trò</th>
-                <th className="py-4 px-6">Trạng thái</th>
-                <th className="py-4 px-6">Ngày tham gia</th>
-                <th className="py-4 px-6 text-right">Hành động</th>
+              <tr className="border-b border-border bg-accent/30">
+                {["Người dùng", "Vai trò", "Trạng thái", "Gói & Credit", "Tham gia", ""].map((h) => (
+                  <th key={h} className={cn(
+                    "px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+                    !h && "text-right"
+                  )}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
-                    <td className="py-4 px-6 text-sm font-semibold text-slate-400 dark:text-slate-500">
-                      {user.id}
-                    </td>
-                    <td className="py-4 px-6">
+            <tbody className="divide-y divide-border">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="py-20 text-center">
+                    <Loader2 className="mx-auto size-7 animate-spin text-muted-foreground" />
+                  </td>
+                </tr>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-20 text-center">
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Users className="size-10 opacity-30" />
+                      <p className="text-sm">Không tìm thấy người dùng phù hợp.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                users.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="cursor-pointer transition-colors hover:bg-accent/40"
+                    onClick={() => openSheet(user)}
+                  >
+                    {/* User */}
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600 font-bold dark:bg-blue-950/40 dark:text-blue-400">
-                          {user.name.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-slate-900 dark:text-white">{user.name}</div>
-                          <div className="text-xs text-slate-400">{user.email}</div>
+                        <Avatar className="size-9 shrink-0">
+                          <AvatarImage src={user.avatar_url ?? undefined} />
+                          <AvatarFallback className="text-xs font-bold">{initials(user)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{displayName(user)}</p>
+                          <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                        user.role === "Admin" ? "text-indigo-600 dark:text-indigo-400" :
-                        user.role === "Manager" ? "text-blue-600 dark:text-blue-400" :
-                        user.role === "Support" ? "text-teal-600 dark:text-teal-400" :
-                        "text-slate-600 dark:text-slate-400"
-                      }`}>
-                        {user.role}
-                      </span>
+
+                    {/* Role */}
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                      <RoleDropdown
+                        userId={user.id}
+                        currentRole={user.role}
+                        onUpdate={handleUpdateRole}
+                        disabled={!isViewerAdmin}
+                      />
                     </td>
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        user.status === "active" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400" :
-                        user.status === "pending" ? "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400" :
-                        "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400"
-                      }`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${
-                          user.status === "active" ? "bg-emerald-500" :
-                          user.status === "pending" ? "bg-amber-500" :
-                          "bg-rose-500"
-                        }`} />
-                        {user.status === "active" ? "Hoạt động" : user.status === "pending" ? "Chờ duyệt" : "Đã khóa"}
-                      </span>
+
+                    {/* Status */}
+                    <td className="px-5 py-4">
+                      <StatusBadge status={user.status} />
                     </td>
-                    <td className="py-4 px-6 text-sm text-slate-500">
-                      {user.joined}
+
+                    {/* Plan & credit */}
+                    <td className="px-5 py-4">
+                      <p className="text-xs font-semibold capitalize text-foreground">
+                        {user.plan_type || "Free"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {(user.current_credit ?? 0).toLocaleString()} credit
+                      </p>
                     </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => setSelectedUser(user)}
-                          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700"
+
+                    {/* Joined */}
+                    <td className="px-5 py-4 text-sm text-muted-foreground">
+                      {formatDate(user.created_at)}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleUpdateStatus(user.id, user.status === "active" ? "locked" : "active")}
+                          loading={updatingId === user.id}
+                          title={user.status === "active" ? "Khóa tài khoản" : "Mở khóa"}
+                          className={cn(
+                            user.status === "active" ? "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                              : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                          )}
+                        >
+                          {user.status === "active" ? <Lock className="size-4" /> : <Unlock className="size-4" />}
+                        </Button>
+
+                        {isViewerAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openDelete(user)}
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            title="Xóa vĩnh viễn"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openSheet(user)}
                         >
                           Chi tiết
-                        </button>
-                        <div className="relative group">
-                          <button className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                          {/* Dropdown hành động */}
-                          <div className="absolute right-0 top-full z-10 mt-1 hidden w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl group-hover:block dark:border-slate-800 dark:bg-slate-900">
-                            {user.status === "pending" && (
-                              <button
-                                onClick={() => handleUpdateStatus(user.id, "active")}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                              >
-                                <CheckCircle2 className="h-4 w-4" />
-                                Phê duyệt
-                              </button>
-                            )}
-                            {user.status === "active" ? (
-                              <button
-                                onClick={() => handleUpdateStatus(user.id, "locked")}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
-                              >
-                                <Lock className="h-4 w-4" />
-                                Khóa tài khoản
-                              </button>
-                            ) : (
-                              user.status === "locked" && (
-                                <button
-                                  onClick={() => handleUpdateStatus(user.id, "active")}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                                >
-                                  <Unlock className="h-4 w-4" />
-                                  Kích hoạt lại
-                                </button>
-                              )
-                            )}
-                            <button
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Xóa vĩnh viễn
-                            </button>
-                          </div>
-                        </div>
+                        </Button>
                       </div>
                     </td>
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <AlertCircle className="h-8 w-8 text-slate-300" />
-                      <span>Không tìm thấy người dùng phù hợp.</span>
-                    </div>
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* ── Pagination ── */}
+        {!isLoading && total > 0 && (
+          <div className="flex items-center justify-between border-t border-border px-5 py-3">
+            <p className="text-xs text-muted-foreground">
+              {(page - 1) * limit + 1}–{Math.min(page * limit, total)}{" "}
+              <span className="opacity-60">/ {total} tài khoản</span>
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let p: number;
+                if (totalPages <= 5) p = i + 1;
+                else if (page <= 3) p = i + 1;
+                else if (page >= totalPages - 2) p = totalPages - 4 + i;
+                else p = page - 2 + i;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors",
+                      p === page
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* MODAL: Thêm người dùng mới */}
-      {isAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Thêm tài khoản mới</h3>
-              <button
-                onClick={() => setIsAddOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {/* ── User Detail Sheet ── */}
+      <UserSheet
+        user={sheetUser}
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        viewerRole={userRole}
+        onUpdateRole={handleUpdateRole}
+        onUpdateStatus={handleUpdateStatus}
+        onDeleteClick={openDelete}
+        isUpdating={updatingId === sheetUser?.id}
+      />
 
-            <form onSubmit={handleCreateUser} className="space-y-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Họ và tên</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Nguyễn Văn A"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:bg-white dark:border-slate-800 dark:bg-slate-800 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Địa chỉ Email</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="nguyenvana@example.com"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:bg-white dark:border-slate-800 dark:bg-slate-800 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Vai trò</label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as any)}
-                  className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
-                >
-                  <option value="User">User</option>
-                  <option value="Support">Support</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Admin">Admin</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddOpen(false)}
-                  className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-                >
-                  Lưu tài khoản
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Xem Chi Tiết Người Dùng */}
-      {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Chi tiết tài khoản</h3>
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mt-6 space-y-6">
-              {/* Profile Card */}
-              <div className="flex items-center gap-4 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/40">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-blue-600 text-2xl font-black dark:bg-blue-950/50 dark:text-blue-400">
-                  {selectedUser.name.charAt(0)}
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-slate-900 dark:text-white">{selectedUser.name}</h4>
-                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    selectedUser.status === "active" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400" :
-                    selectedUser.status === "pending" ? "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400" :
-                    "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400"
-                  }`}>
-                    {selectedUser.status === "active" ? "Hoạt động" : selectedUser.status === "pending" ? "Chờ duyệt" : "Đã khóa"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Info Grid */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase">Mã tài khoản</span>
-                  <p className="font-semibold text-slate-900 dark:text-white">{selectedUser.id}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase">Họ và tên</span>
-                  <p className="font-semibold text-slate-900 dark:text-white">{selectedUser.name}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase">Email</span>
-                  <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Mail className="h-4 w-4 text-slate-400" />
-                    {selectedUser.email}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase">Vai trò quản trị</span>
-                  <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Shield className="h-4 w-4 text-slate-400" />
-                    {selectedUser.role}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase">Ngày tham gia</span>
-                  <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4 text-slate-400" />
-                    {selectedUser.joined}
-                  </p>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                <span className="text-xs font-semibold text-slate-400 uppercase">Thao tác nhanh tài khoản</span>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {selectedUser.status === "pending" && (
-                    <button
-                      onClick={() => handleUpdateStatus(selectedUser.id, "active")}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400"
-                    >
-                      <UserCheck className="h-3.5 w-3.5" />
-                      Phê duyệt hoạt động
-                    </button>
-                  )}
-                  {selectedUser.status === "active" ? (
-                    <button
-                      onClick={() => handleUpdateStatus(selectedUser.id, "locked")}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 dark:bg-amber-950/20 dark:text-amber-400"
-                    >
-                      <Lock className="h-3.5 w-3.5" />
-                      Khóa tài khoản ngay
-                    </button>
-                  ) : (
-                    selectedUser.status === "locked" && (
-                      <button
-                        onClick={() => handleUpdateStatus(selectedUser.id, "active")}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400"
-                      >
-                        <Unlock className="h-3.5 w-3.5" />
-                        Mở khóa hoạt động
-                      </button>
-                    )
-                  )}
-                  <button
-                    onClick={() => handleDeleteUser(selectedUser.id)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:text-red-400"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Xóa vĩnh viễn
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Delete Confirm Dialog ── */}
+      <DeleteDialog
+        user={deleteTarget}
+        open={deleteOpen}
+        onConfirm={handleDelete}
+        onClose={() => { setDeleteOpen(false); setDeleteTarget(null); }}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }
