@@ -76,10 +76,7 @@ export default function RolesManagement() {
             ...r,
             permissions: {
               ...r.permissions,
-              [category]: {
-                ...currentCategory,
-                [action]: !currentCategory[action],
-              },
+              [category]: { ...currentCategory, [action]: !currentCategory[action] },
             },
           };
         }
@@ -89,16 +86,16 @@ export default function RolesManagement() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Phân quyền & Vai trò</h1>
-        <p className="text-sm text-slate-500">Cấu hình chi tiết quyền truy cập của từng vai trò trong hệ thống.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Phân quyền & Vai trò</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">Cấu hình chi tiết quyền truy cập của từng vai trò trong hệ thống.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Cột danh sách vai trò */}
+        {/* Danh sách vai trò */}
         <div className="space-y-3">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Danh sách vai trò</span>
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Danh sách vai trò</span>
           <div className="space-y-2">
             {roles.map((item) => (
               <button
@@ -106,21 +103,21 @@ export default function RolesManagement() {
                 onClick={() => setSelectedRole(item.role)}
                 className={`w-full text-left p-4 rounded-xl border transition-all ${
                   selectedRole === item.role
-                    ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 shadow-sm"
-                    : "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+                    ? "border-primary/40 bg-primary/8 shadow-sm"
+                    : "border-border bg-card hover:bg-accent"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`rounded-lg p-2 ${
                     selectedRole === item.role
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-500 dark:bg-slate-800"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-accent text-muted-foreground"
                   }`}>
                     <Shield className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">{item.role}</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">{item.usersCount} tài khoản</p>
+                    <h3 className="font-bold text-foreground text-sm">{item.role}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.usersCount} tài khoản</p>
                   </div>
                 </div>
               </button>
@@ -128,21 +125,20 @@ export default function RolesManagement() {
           </div>
         </div>
 
-        {/* Cột cấu hình quyền */}
+        {/* Cấu hình quyền */}
         <div className="md:col-span-2 space-y-3">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quyền hạn chi tiết cho: {selectedRole}</span>
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 space-y-6">
-            <div>
-              <p className="text-sm text-slate-600 dark:text-slate-300">{currentRoleData.description}</p>
-            </div>
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+            Quyền hạn chi tiết cho: {selectedRole}
+          </span>
+          <div className="rounded-2xl border border-border bg-card p-6 space-y-6">
+            <p className="text-sm text-muted-foreground">{currentRoleData.description}</p>
 
-            {/* Các nhóm quyền */}
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {/* Nhóm 1: Quản lý Users */}
+            <div className="divide-y divide-border">
+              {/* Phân hệ Người dùng */}
               <div className="py-4 first:pt-0">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Phân hệ Người dùng</h4>
-                  <span className="text-xs text-slate-400">Cho phép thao tác với danh sách tài khoản người dùng</span>
+                  <h4 className="text-sm font-bold text-foreground">Phân hệ Người dùng</h4>
+                  <span className="text-xs text-muted-foreground">Cho phép thao tác với danh sách tài khoản</span>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {Object.entries(currentRoleData.permissions.users).map(([action, allowed]) => (
@@ -151,11 +147,11 @@ export default function RolesManagement() {
                       onClick={() => togglePermission("users", action as any)}
                       className={`flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all ${
                         allowed
-                          ? "border-emerald-200 bg-emerald-50/40 text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/10 dark:text-emerald-400"
-                          : "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-800/20"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-border bg-accent/50 text-muted-foreground hover:bg-accent"
                       }`}
                     >
-                      <span className="capitalize">
+                      <span>
                         {action === "read" ? "Xem danh sách" : action === "write" ? "Thêm / Sửa" : "Xóa tài khoản"}
                       </span>
                       {allowed ? <Check className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
@@ -164,11 +160,11 @@ export default function RolesManagement() {
                 </div>
               </div>
 
-              {/* Nhóm 2: Quản lý Phân quyền */}
+              {/* Phân hệ Vai trò */}
               <div className="py-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Phân hệ Vai trò & Bảo mật</h4>
-                  <span className="text-xs text-slate-400">Cho phép điều chỉnh vai trò và quyền hạn</span>
+                  <h4 className="text-sm font-bold text-foreground">Phân hệ Vai trò & Bảo mật</h4>
+                  <span className="text-xs text-muted-foreground">Cho phép điều chỉnh vai trò và quyền hạn</span>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {Object.entries(currentRoleData.permissions.roles).map(([action, allowed]) => (
@@ -177,11 +173,11 @@ export default function RolesManagement() {
                       onClick={() => togglePermission("roles", action as any)}
                       className={`flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all ${
                         allowed
-                          ? "border-emerald-200 bg-emerald-50/40 text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/10 dark:text-emerald-400"
-                          : "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-800/20"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-border bg-accent/50 text-muted-foreground hover:bg-accent"
                       }`}
                     >
-                      <span className="capitalize">
+                      <span>
                         {action === "read" ? "Xem danh sách" : action === "write" ? "Thêm / Sửa" : "Xóa vai trò"}
                       </span>
                       {allowed ? <Check className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
@@ -190,11 +186,11 @@ export default function RolesManagement() {
                 </div>
               </div>
 
-              {/* Nhóm 3: Hệ thống */}
+              {/* Phân hệ Hệ thống */}
               <div className="py-4 last:pb-0">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Phân hệ Cấu hình hệ thống</h4>
-                  <span className="text-xs text-slate-400">Can thiệp máy chủ, kết nối API hoặc cơ sở dữ liệu</span>
+                  <h4 className="text-sm font-bold text-foreground">Phân hệ Cấu hình hệ thống</h4>
+                  <span className="text-xs text-muted-foreground">Can thiệp máy chủ, kết nối API hoặc cơ sở dữ liệu</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {Object.entries(currentRoleData.permissions.system).map(([action, allowed]) => (
@@ -203,11 +199,11 @@ export default function RolesManagement() {
                       onClick={() => togglePermission("system", action as any)}
                       className={`flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all ${
                         allowed
-                          ? "border-emerald-200 bg-emerald-50/40 text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/10 dark:text-emerald-400"
-                          : "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-800/20"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-border bg-accent/50 text-muted-foreground hover:bg-accent"
                       }`}
                     >
-                      <span className="capitalize">
+                      <span>
                         {action === "read" ? "Xem thông số máy chủ" : "Chỉnh sửa cấu hình API"}
                       </span>
                       {allowed ? <Check className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
@@ -217,15 +213,15 @@ export default function RolesManagement() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-4 text-xs font-medium text-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
+            <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 p-4 text-xs font-medium text-amber-800">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>Lưu ý: Mọi thay đổi về phân quyền sẽ có hiệu lực ngay lập tức cho các tài khoản đang hoạt động dưới vai trò này.</span>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-end pt-4 border-t border-border">
               <button
                 onClick={() => alert("Đã lưu thay đổi cấu hình phân quyền!")}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/10 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all"
               >
                 <RefreshCw className="h-4 w-4" />
                 Cập nhật quyền

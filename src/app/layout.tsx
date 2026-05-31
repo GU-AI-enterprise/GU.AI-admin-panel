@@ -18,6 +18,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "GU.AI Admin Console",
   description: "Hệ thống quản trị nội bộ GU.AI – AI Virtual Fashion Model Platform",
+  icons: {
+    icon: "/lotus.svg",
+    apple: "/lotus.svg",
+  },
 };
 
 export default function RootLayout({

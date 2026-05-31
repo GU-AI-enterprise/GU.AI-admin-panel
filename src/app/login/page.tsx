@@ -2,8 +2,8 @@
 
 import React, { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, ShieldCheck } from "lucide-react";
+import Image from "next/image";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 function LoginContent() {
@@ -99,17 +99,17 @@ function LoginContent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 text-foreground">
-      <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-xl">
+      <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-rose-400 text-primary-foreground shadow-lg">
-            <Sparkles className="h-6 w-6" />
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-primary/20 shadow-sm">
+            <Image src="/lotus.svg" alt="GU.AI" width={32} height={32} />
           </div>
-          <h2 className="mt-6 font-serif text-3xl font-light tracking-tight">
-            Chào mừng <span className="font-normal italic text-primary">quay lại</span>
+          <h2 className="mt-5 text-2xl font-bold tracking-tight text-foreground">
+            Chào mừng quay lại
           </h2>
-          <p className="mt-2 text-xs font-light text-muted-foreground uppercase tracking-wider">
-            GU.AI Admin Console
+          <p className="mt-1 text-sm text-muted-foreground">
+            GU.AI Management Console
           </p>
         </div>
 

@@ -62,10 +62,10 @@ function timeAgo(dateStr: string): string {
 }
 
 const STATUS_CONFIG = {
-  open:     { label: "Mới",        bg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400", dot: "bg-emerald-500", icon: Inbox },
-  pending:  { label: "Đang xử lý", bg: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",   dot: "bg-amber-500",   icon: Clock },
-  resolved: { label: "Đã xử lý",   bg: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",      dot: "bg-blue-500",    icon: CheckCircle2 },
-  closed:   { label: "Đóng",       bg: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",      dot: "bg-slate-400",   icon: XCircle },
+  open:     { label: "Mới",        bg: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500", icon: Inbox },
+  pending:  { label: "Đang xử lý", bg: "bg-amber-100 text-amber-700",    dot: "bg-amber-500",   icon: Clock },
+  resolved: { label: "Đã xử lý",   bg: "bg-blue-100 text-blue-700",       dot: "bg-blue-500",    icon: CheckCircle2 },
+  closed:   { label: "Đóng",       bg: "bg-accent text-muted-foreground", dot: "bg-border",      icon: XCircle },
 } as const;
 
 export default function SupportDashboardPage() {
@@ -159,7 +159,6 @@ export default function SupportDashboardPage() {
       });
       const json = await res.json();
       if (res.status === 409) {
-        // Conversation already claimed by another staff
         const staffId = json.data?.assigned_staff_id;
         setLockedBy(staffId || "staff khác");
         return;
@@ -167,7 +166,6 @@ export default function SupportDashboardPage() {
       if (!json.success) throw new Error(json.error);
       setDraft("");
       setMessages((prev) => [...prev, json.data]);
-      // After first reply, auto-assigned — refresh conversation
       fetchMessages(selected.id, true);
       fetchList(true);
     } catch (e: any) {
@@ -200,24 +198,22 @@ export default function SupportDashboardPage() {
   const isAssignedToMe = selected?.assigned_staff_id === user?.id;
   const isAssignedToOther = !!selected?.assigned_staff_id && !isAssignedToMe;
   const isUnassigned = !selected?.assigned_staff_id;
-
   const canReply = selected && selected.status !== "closed" && selected.status !== "resolved";
-
   const statusCfg = selected ? STATUS_CONFIG[selected.status] : null;
 
   return (
-    <div className="flex h-[calc(100vh-88px)] flex-col gap-0">
+    <div className="flex h-full flex-col gap-0">
 
       {/* ── Page header ─────────────────────────────────────────────────── */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div>
-          <h1 className="flex items-center gap-2.5 text-xl font-bold text-slate-900 dark:text-white">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
-              <Headphones className="h-4.5 w-4.5" />
+          <h1 className="flex items-center gap-2.5 text-xl font-bold text-foreground">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Headphones className="h-4 w-4" />
             </div>
             Hỗ trợ người dùng
           </h1>
-          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             Ai trả lời trước sẽ được nhận cuộc hội thoại đó
           </p>
         </div>
@@ -225,7 +221,7 @@ export default function SupportDashboardPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground outline-none focus:border-ring"
           >
             <option value="all">Tất cả</option>
             <option value="open">Mới</option>
@@ -235,7 +231,7 @@ export default function SupportDashboardPage() {
           </select>
           <button
             onClick={() => fetchList()}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:bg-accent transition-colors"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -243,20 +239,20 @@ export default function SupportDashboardPage() {
       </div>
 
       {error && (
-        <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-2.5 text-sm text-destructive shrink-0">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
-          <button onClick={() => setError("")} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+          <button onClick={() => setError("")} className="ml-auto opacity-60 hover:opacity-100">✕</button>
         </div>
       )}
 
       {/* ── Main layout ──────────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
 
         {/* ── Conversation list ─────────────────────────────────────────── */}
-        <aside className="flex w-80 shrink-0 flex-col border-r border-slate-100 dark:border-slate-800">
-          <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+        <aside className="flex w-80 shrink-0 flex-col border-r border-border">
+          <div className="border-b border-border px-4 py-3 shrink-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {conversations.length} cuộc hội thoại
             </p>
           </div>
@@ -264,12 +260,12 @@ export default function SupportDashboardPage() {
           <div className="flex-1 overflow-y-auto">
             {loadingList ? (
               <div className="flex h-32 items-center justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : conversations.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-                <MessageCircle className="mb-3 h-10 w-10 text-slate-300" />
-                <p className="text-sm text-slate-500">Chưa có hội thoại nào.</p>
+                <MessageCircle className="mb-3 h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Chưa có hội thoại nào.</p>
               </div>
             ) : (
               conversations.map((conv) => {
@@ -282,21 +278,20 @@ export default function SupportDashboardPage() {
                   <button
                     key={conv.id}
                     onClick={() => setSelected(conv)}
-                    className={`group w-full border-b border-slate-50 px-4 py-3.5 text-left transition-all dark:border-slate-800/60 ${
+                    className={`group w-full border-b border-border/60 px-4 py-3.5 text-left transition-all ${
                       active
-                        ? "bg-blue-50 dark:bg-blue-950/30"
-                        : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                        ? "bg-primary/8 border-l-2 border-l-primary"
+                        : "hover:bg-accent/50"
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      {/* Avatar */}
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-xs font-bold text-slate-600 dark:from-slate-700 dark:to-slate-600 dark:text-slate-300">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-violet-400/20 text-xs font-bold text-primary">
                         {initials(cust)}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
-                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                          <p className="truncate text-sm font-semibold text-foreground">
                             {cust?.name || cust?.email?.split("@")[0] || "Người dùng"}
                           </p>
                           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.bg}`}>
@@ -304,18 +299,18 @@ export default function SupportDashboardPage() {
                           </span>
                         </div>
 
-                        <p className="mt-0.5 truncate text-xs text-slate-400">{cust?.email}</p>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{cust?.email}</p>
 
                         <div className="mt-1.5 flex items-center justify-between">
                           {aStaff ? (
-                            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                               <UserCheck className="h-3 w-3 text-emerald-500" />
                               {aStaff.name || aStaff.email?.split("@")[0]}
                             </span>
                           ) : (
                             <span className="text-[10px] font-medium text-amber-500">Chưa nhận</span>
                           )}
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-muted-foreground">
                             {conv.last_message_at ? timeAgo(conv.last_message_at) : timeAgo(conv.created_at)}
                           </span>
                         </div>
@@ -329,43 +324,41 @@ export default function SupportDashboardPage() {
         </aside>
 
         {/* ── Chat panel ───────────────────────────────────────────────── */}
-        <section className="flex min-w-0 flex-1 flex-col">
+        <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {selected ? (
             <>
               {/* Chat header */}
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3.5 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-xs font-bold text-blue-700 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-violet-400/20 text-xs font-bold text-primary">
                     {initials(customer)}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    <p className="text-sm font-semibold text-foreground">
                       {customer?.name || customer?.email?.split("@")[0] || "Người dùng"}
                     </p>
-                    <p className="text-xs text-slate-400">{customer?.email}</p>
+                    <p className="text-xs text-muted-foreground">{customer?.email}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                  {/* Assigned staff badge */}
                   {assignedStaff && (
-                    <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
+                    <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
                       <UserCheck className="h-3.5 w-3.5" />
                       {isAssignedToMe ? "Bạn đang xử lý" : (assignedStaff.name || assignedStaff.email?.split("@")[0])}
                     </div>
                   )}
                   {isUnassigned && (
-                    <div className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                    <div className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                       <Clock className="h-3.5 w-3.5" />
                       Chưa được nhận
                     </div>
                   )}
 
-                  {/* Status selector */}
                   <select
                     value={selected.status}
                     onChange={(e) => updateStatus(e.target.value as SupportConversation["status"])}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                    className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground outline-none focus:border-ring"
                   >
                     <option value="open">Mới</option>
                     <option value="pending">Đang xử lý</option>
@@ -375,15 +368,15 @@ export default function SupportDashboardPage() {
                 </div>
               </div>
 
-              {/* Assignment info banner */}
+              {/* Assignment banners */}
               {isUnassigned && canReply && (
-                <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2.5 text-xs text-amber-700 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400">
+                <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2.5 text-xs text-amber-700 shrink-0">
                   <Clock className="h-3.5 w-3.5 shrink-0" />
                   Trả lời trước để nhận cuộc hội thoại này.
                 </div>
               )}
               {isAssignedToOther && (
-                <div className="flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-5 py-2.5 text-xs text-rose-700 dark:border-rose-900/30 dark:bg-rose-950/20 dark:text-rose-400">
+                <div className="flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-5 py-2.5 text-xs text-rose-700 shrink-0">
                   <Lock className="h-3.5 w-3.5 shrink-0" />
                   Cuộc hội thoại này đang được xử lý bởi{" "}
                   <span className="font-semibold">{assignedStaff?.name || assignedStaff?.email?.split("@")[0]}</span>.
@@ -391,7 +384,7 @@ export default function SupportDashboardPage() {
                 </div>
               )}
               {lockedBy && (
-                <div className="flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-5 py-2.5 text-xs text-rose-700 dark:border-rose-900/30 dark:bg-rose-950/20 dark:text-rose-400">
+                <div className="flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-5 py-2.5 text-xs text-rose-700 shrink-0">
                   <Lock className="h-3.5 w-3.5 shrink-0" />
                   Không thể gửi — cuộc hội thoại đã được nhận bởi staff khác.
                 </div>
@@ -401,12 +394,12 @@ export default function SupportDashboardPage() {
               <div className="flex-1 overflow-y-auto px-5 py-4">
                 {loadingMsgs ? (
                   <div className="flex h-full items-center justify-center">
-                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-center">
-                    <MessageCircle className="mb-3 h-12 w-12 text-slate-300" />
-                    <p className="text-sm text-slate-400">Chưa có tin nhắn. Hãy là người đầu tiên phản hồi!</p>
+                    <MessageCircle className="mb-3 h-12 w-12 text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">Chưa có tin nhắn. Hãy là người đầu tiên phản hồi!</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -415,37 +408,29 @@ export default function SupportDashboardPage() {
                       const isCustomer = msg.sender_type === "customer";
                       const isOtherStaff = !isMe && !isCustomer;
                       const sender = normalizeUser(msg.sender);
-
-                      // Alignment: tôi → phải | khách/staff khác → trái
                       const alignRight = isMe;
 
-                      // Bubble style
                       let bubbleClass = "";
                       let timeClass = "";
                       if (isMe) {
-                        bubbleClass = "bg-blue-600 text-white";
-                        timeClass  = "text-blue-200";
+                        bubbleClass = "bg-primary text-primary-foreground";
+                        timeClass  = "text-primary-foreground/60";
                       } else if (isOtherStaff) {
-                        bubbleClass = "bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100";
+                        bubbleClass = "bg-violet-100 text-violet-900";
                         timeClass  = "text-violet-400";
                       } else {
-                        bubbleClass = "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100";
-                        timeClass  = "text-slate-400";
+                        bubbleClass = "bg-accent text-foreground";
+                        timeClass  = "text-muted-foreground";
                       }
 
-                      // Sender label
                       let senderLabel = "";
-                      if (isMe) {
-                        senderLabel = "Bạn";
-                      } else if (isOtherStaff) {
-                        senderLabel = sender?.name || sender?.email?.split("@")[0] || "Staff";
-                      } else {
-                        senderLabel = sender?.name || sender?.email?.split("@")[0] || "Khách hàng";
-                      }
+                      if (isMe) senderLabel = "Bạn";
+                      else if (isOtherStaff) senderLabel = sender?.name || sender?.email?.split("@")[0] || "Staff";
+                      else senderLabel = sender?.name || sender?.email?.split("@")[0] || "Khách hàng";
 
                       return (
                         <div key={msg.id} className={`flex flex-col ${alignRight ? "items-end" : "items-start"}`}>
-                          <p className="mb-1 px-1 text-[10px] text-slate-400">{senderLabel}</p>
+                          <p className="mb-1 px-1 text-[10px] text-muted-foreground">{senderLabel}</p>
                           <div className={`max-w-[68%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${bubbleClass}`}>
                             <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                             <p className={`mt-1.5 text-[10px] ${timeClass}`}>
@@ -461,9 +446,9 @@ export default function SupportDashboardPage() {
               </div>
 
               {/* Input */}
-              <div className="border-t border-slate-100 p-4 dark:border-slate-800">
+              <div className="border-t border-border p-4 shrink-0">
                 {!canReply ? (
-                  <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 py-3 text-sm text-slate-400 dark:bg-slate-800">
+                  <div className="flex items-center justify-center gap-2 rounded-xl bg-accent py-3 text-sm text-muted-foreground">
                     <XCircle className="h-4 w-4" />
                     Cuộc hội thoại đã {selected.status === "closed" ? "đóng" : "xử lý xong"}.
                   </div>
@@ -481,7 +466,7 @@ export default function SupportDashboardPage() {
                       }
                       disabled={isAssignedToOther}
                       rows={1}
-                      className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:focus:bg-slate-800"
+                      className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-border bg-accent/50 px-4 py-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-ring focus:bg-card focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-50"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -492,7 +477,7 @@ export default function SupportDashboardPage() {
                     <button
                       type="submit"
                       disabled={!draft.trim() || sending || isAssignedToOther}
-                      className="flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:opacity-40"
+                      className="flex h-11 items-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-40"
                     >
                       {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       Gửi
@@ -503,12 +488,12 @@ export default function SupportDashboardPage() {
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800">
-                <Headphones className="h-8 w-8 text-slate-400" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent">
+                <Headphones className="h-8 w-8 text-muted-foreground" />
               </div>
               <div>
-                <p className="font-semibold text-slate-700 dark:text-slate-300">Chọn cuộc hội thoại</p>
-                <p className="mt-1 text-sm text-slate-400">để bắt đầu hỗ trợ người dùng</p>
+                <p className="font-semibold text-foreground">Chọn cuộc hội thoại</p>
+                <p className="mt-1 text-sm text-muted-foreground">để bắt đầu hỗ trợ người dùng</p>
               </div>
             </div>
           )}

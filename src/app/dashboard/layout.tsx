@@ -1,35 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  Users,
-  LayoutDashboard,
-  ShieldCheck,
-  Headphones,
-  LogOut,
-  Bell,
-  Sparkles,
-  Menu,
-  X
+  Users, LayoutDashboard, ShieldCheck, Headphones,
+  LogOut, Bell, Menu, X, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { toggleSidebar, setSidebarOpen } from "@/features/ui/uiSlice";
+import { cn } from "@/lib/utils";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const navItems = [
+  { name: "Tổng quan",           href: "/dashboard",         icon: LayoutDashboard },
+  { name: "Người dùng",          href: "/dashboard/users",   icon: Users },
+  { name: "Hỗ trợ",              href: "/dashboard/support", icon: Headphones },
+  { name: "Phân quyền",          href: "/dashboard/roles",   icon: ShieldCheck },
+];
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { session, isAdmin, loading, signOut } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { session, isAdmin, loading, signOut, userRole } = useAuth();
+  const dispatch = useAppDispatch();
+  const sidebarOpen = useAppSelector((s) => s.ui.sidebarOpen);
 
   useEffect(() => {
-    if (!loading && (!session || !isAdmin)) {
-      router.replace("/login");
-    }
+    if (!loading && (!session || !isAdmin)) router.replace("/login");
   }, [loading, session, isAdmin, router]);
 
   const handleLogout = async () => {
@@ -37,148 +36,162 @@ export default function DashboardLayout({
     router.replace("/login");
   };
 
-  const navItems = [
-    { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Quản lý Người dùng", href: "/dashboard/users", icon: Users },
-    { name: "Hỗ trợ người dùng", href: "/dashboard/support", icon: Headphones },
-    { name: "Phân quyền & Vai trò", href: "/dashboard/roles", icon: ShieldCheck },
-  ];
-
-  // Hiển thị spinner khi đang xác thực
   if (loading || !session || !isAdmin) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Image src="/lotus.svg" alt="GU.AI" width={40} height={40} className="animate-pulse opacity-60" />
+          <div className="h-1 w-24 overflow-hidden rounded-full bg-border">
+            <div className="h-full w-1/2 animate-[shimmer_1.4s_infinite] rounded-full bg-primary/40" />
+          </div>
+        </div>
       </div>
     );
   }
 
-  const adminName =
+  const displayName =
     session.user.user_metadata?.full_name ||
     session.user.user_metadata?.name ||
     session.user.email?.split("@")[0] ||
     "Admin";
-  const adminEmail = session.user.email || "";
+  const email = session.user.email || "";
 
-  const breadcrumb: Record<string, string> = {
-    "/dashboard": "Tổng quan",
-    "/dashboard/users": "Quản lý Người dùng",
-    "/dashboard/support": "Hỗ trợ người dùng",
-    "/dashboard/roles": "Phân quyền",
-  };
+  const breadcrumb = navItems.find((n) => n.href === pathname)?.name ?? "Tổng quan";
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
-      {/* Mobile Topbar */}
-      <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold">
-            G
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+
+      {/* ── Mobile overlay ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-foreground/20 backdrop-blur-sm md:hidden"
+          onClick={() => dispatch(setSidebarOpen(false))}
+        />
+      )}
+
+      {/* ── Sidebar ── */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r bg-[var(--sidebar)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] md:static md:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ borderColor: "var(--sidebar-border)" }}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-3 border-b px-6 py-5" style={{ borderColor: "var(--sidebar-border)" }}>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+            <Image src="/lotus.svg" alt="GU.AI" width={22} height={22} className="drop-shadow-sm" />
           </div>
-          <span className="font-bold">GU.AI Panel</span>
+          <div className="leading-tight">
+            <span className="block text-[15px] font-bold tracking-tight text-foreground">GU.AI</span>
+            <span className="block text-[11px] text-muted-foreground">Management Console</span>
+          </div>
         </div>
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-        >
-          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
-      </header>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform border-r border-slate-200 bg-white p-6 transition-transform duration-300 md:static md:translate-x-0 dark:border-slate-800 dark:bg-slate-900 ${
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}>
-          <div className="flex flex-col h-full justify-between">
-            <div>
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-6 dark:border-slate-800">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-black shadow-md shadow-blue-500/10">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div>
-                  <h1 className="font-bold text-slate-900 dark:text-white leading-tight">GU.AI</h1>
-                  <span className="text-xs text-slate-400">Management Console</span>
-                </div>
-              </div>
-
-              <nav className="mt-8 space-y-1">
-                <span className="px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Hệ thống
-                </span>
-                <div className="space-y-1.5 mt-2">
-                  {navItems.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                          isActive
-                            ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white"
-                        }`}
-                      >
-                        <item.icon className={`h-5 w-5 ${isActive ? "text-blue-600 dark:text-blue-400" : ""}`} />
-                        {item.name}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </nav>
-            </div>
-
-            <div className="border-t border-slate-100 pt-6 dark:border-slate-800">
-              <div className="flex items-center gap-3 px-2 mb-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  {adminName.charAt(0).toUpperCase()}
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-sm font-semibold truncate text-slate-900 dark:text-white">{adminName}</p>
-                  <p className="text-xs text-slate-400 truncate">{adminEmail}</p>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20 transition-all"
+        {/* Nav */}
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-5">
+          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Hệ thống
+          </p>
+          {navItems.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => dispatch(setSidebarOpen(false))}
+                className={cn(
+                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  active
+                    ? "bg-primary/10 text-primary shadow-[inset_3px_0_0_var(--color-primary)]"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
               >
-                <LogOut className="h-5 w-5" />
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </aside>
+                <item.icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                <span>{item.name}</span>
+                {active && <ChevronRight className="ml-auto size-3.5 text-primary/60" />}
+              </Link>
+            );
+          })}
+        </nav>
 
-        {/* Content wrapper */}
-        <div className="flex-1 min-h-screen flex flex-col overflow-x-hidden">
-          <header className="hidden h-16 items-center justify-between border-b border-slate-200 bg-white px-8 md:flex dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span>Hệ thống</span>
-              <span>/</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">
-                {breadcrumb[pathname] || "Tổng quan"}
-              </span>
+        {/* User footer */}
+        <div className="border-t px-4 py-4" style={{ borderColor: "var(--sidebar-border)" }}>
+          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">
+              {displayName.charAt(0).toUpperCase()}
             </div>
-            <div className="flex items-center gap-4">
-              <button className="relative rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-blue-600" />
-              </button>
-              <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-800" />
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{adminName}</span>
-                <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
-                  Admin
-                </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+              <p className="truncate text-xs text-muted-foreground">{email}</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+              {userRole}
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-destructive/8 hover:text-destructive"
+          >
+            <LogOut className="size-4" />
+            Đăng xuất
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Main content ── */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+
+        {/* Topbar */}
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card px-4 md:px-6">
+          <div className="flex items-center gap-3">
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => dispatch(toggleSidebar())}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent md:hidden"
+            >
+              {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
+
+            {/* Mobile logo */}
+            <div className="flex items-center gap-2 md:hidden">
+              <Image src="/lotus.svg" alt="GU.AI" width={20} height={20} />
+              <span className="font-bold text-foreground">GU.AI</span>
+            </div>
+
+            {/* Breadcrumb (desktop) */}
+            <nav className="hidden items-center gap-1.5 text-sm md:flex">
+              <span className="text-muted-foreground">Hệ thống</span>
+              <ChevronRight className="size-3.5 text-muted-foreground/50" />
+              <span className="font-semibold text-foreground">{breadcrumb}</span>
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Notification bell */}
+            <button className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              <Bell className="size-4" />
+              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
+            </button>
+
+            <div className="h-5 w-px bg-border" />
+
+            {/* Admin pill */}
+            <div className="hidden items-center gap-2.5 md:flex">
+              <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="leading-tight">
+                <p className="text-sm font-semibold text-foreground">{displayName}</p>
               </div>
             </div>
-          </header>
+          </div>
+        </header>
 
-          <main className="flex-1 p-6 md:p-8">
-            {children}
-          </main>
-        </div>
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto p-5 md:p-7">
+          {children}
+        </main>
       </div>
     </div>
   );
