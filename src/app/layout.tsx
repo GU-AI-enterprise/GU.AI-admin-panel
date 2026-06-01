@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import StoreProvider from "@/store/StoreProvider";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -33,6 +34,7 @@ export default function RootLayout({
         <StoreProvider>
           <AuthProvider>
             {children}
+            <Toaster richColors position="bottom-right" />
           </AuthProvider>
         </StoreProvider>
       </body>

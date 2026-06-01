@@ -120,6 +120,20 @@ export const deleteUser = createAsyncThunk(
   }
 );
 
+export const awardCredits = createAsyncThunk(
+  'users/awardCredits',
+  async ({ id, amount, reason }: { id: string; amount: number; reason: string }, { rejectWithValue }) => {
+    const res = await apiFetch(`/api/admin/users/${id}/credits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, reason }),
+    });
+    const json = await res.json();
+    if (!json.success) return rejectWithValue(json.error);
+    return json.data as { userId: string; amount: number; newBalance: number };
+  }
+);
+
 // ── Slice ──────────────────────────────────────────────────────────────────────
 
 const initialState: UsersState = {
@@ -203,9 +217,18 @@ const usersSlice = createSlice({
         state.total = Math.max(0, state.total - 1);
         state.deleteTargetId = null;
         state.sheetUserId = null;
-        // Refetch stats after delete
       })
       .addCase(deleteUser.rejected, (state) => {});
+
+    // awardCredits — update current_credit in the local list
+    builder
+      .addCase(awardCredits.pending, (state, action) => { state.updatingId = action.meta.arg.id; })
+      .addCase(awardCredits.fulfilled, (state, action) => {
+        const idx = state.users.findIndex((u) => u.id === action.payload.userId);
+        if (idx !== -1) state.users[idx].current_credit = action.payload.newBalance;
+        state.updatingId = null;
+      })
+      .addCase(awardCredits.rejected, (state) => { state.updatingId = null; });
   },
 });
 
