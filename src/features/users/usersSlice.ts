@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '@/store/store';
 import { apiFetch } from '@/lib/apiFetch';
 
@@ -243,15 +243,19 @@ export const selectUsers = (s: RootState) => s.users.users;
 export const selectStats = (s: RootState) => s.users.stats;
 export const selectUsersLoading = (s: RootState) => s.users.isLoading;
 export const selectUsersError = (s: RootState) => s.users.error;
-export const selectPagination = (s: RootState) => ({
-  page: s.users.page, limit: s.users.limit,
-  total: s.users.total, totalPages: s.users.totalPages,
-});
-export const selectFilters = (s: RootState) => ({
-  search: s.users.search,
-  roleFilter: s.users.roleFilter,
-  statusFilter: s.users.statusFilter,
-});
+export const selectPagination = createSelector(
+  (s: RootState) => s.users.page,
+  (s: RootState) => s.users.limit,
+  (s: RootState) => s.users.total,
+  (s: RootState) => s.users.totalPages,
+  (page, limit, total, totalPages) => ({ page, limit, total, totalPages })
+);
+export const selectFilters = createSelector(
+  (s: RootState) => s.users.search,
+  (s: RootState) => s.users.roleFilter,
+  (s: RootState) => s.users.statusFilter,
+  (search, roleFilter, statusFilter) => ({ search, roleFilter, statusFilter })
+);
 export const selectUpdatingId = (s: RootState) => s.users.updatingId;
 export const selectSheetUser = (s: RootState) =>
   s.users.sheetUserId ? s.users.users.find((u) => u.id === s.users.sheetUserId) ?? null : null;

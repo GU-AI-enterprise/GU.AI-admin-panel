@@ -62,6 +62,7 @@ export function UserSheet({
   const isLocked = user?.status === "locked";
 
   const handleAwardCredits = async () => {
+    console.log('[UserSheet.handleAwardCredits] CALLED isAwarding=', isAwarding, 'user=', user?.id);
     if (!user) return;
     const amount = parseInt(creditAmount);
     if (!amount || amount <= 0 || !Number.isInteger(amount)) {
@@ -69,7 +70,9 @@ export function UserSheet({
       return;
     }
     setIsAwarding(true);
+    console.log('[UserSheet.handleAwardCredits] DISPATCHING awardCredits amount=', amount);
     const result = await dispatch(awardCredits({ id: user.id, amount, reason: creditReason.trim() }));
+    console.log('[UserSheet.handleAwardCredits] DISPATCH DONE result=', result.type);
     setIsAwarding(false);
     if (awardCredits.fulfilled.match(result)) {
       toast.success(`Đã cộng ${amount.toLocaleString()} credits cho ${user.email}.`);
@@ -82,7 +85,7 @@ export function UserSheet({
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent>
+      <SheetContent aria-describedby={undefined}>
         {user && (
           <>
             <SheetHeader>

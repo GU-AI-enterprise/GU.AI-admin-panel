@@ -3,6 +3,17 @@ import { supabase } from './supabase';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean; _tokenSet?: boolean };
+
+// Token cache — updated synchronously by AuthContext via setAuthToken().
+// Avoids calling supabase.auth.getSession() inside the request interceptor,
+// which can deadlock when the SDK tries to acquire its internal refresh lock.
+let _currentToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  _currentToken = token;
+}
+
 export const apiClient = axios.create({
   baseURL: API_URL,
   timeout: 30000,
@@ -10,28 +21,39 @@ export const apiClient = axios.create({
   validateStatus: () => true,
 });
 
-// Attach Bearer token on every request
-apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    config.headers.Authorization = `Bearer ${session.access_token}`;
+// Attach Bearer token synchronously — no Supabase SDK calls, no possibility of hanging.
+apiClient.interceptors.request.use((config: RetryConfig) => {
+  if (config._tokenSet) return config;
+  if (_currentToken) {
+    config.headers.Authorization = `Bearer ${_currentToken}`;
   }
   return config;
 });
 
-// On 401: refresh token once and retry (in success handler since validateStatus never throws)
+// On 401: refresh token once and retry (with a 10s hard timeout so we never hang forever)
 apiClient.interceptors.response.use(async (res) => {
   if (res.status !== 401) return res;
-  const config = res.config as InternalAxiosRequestConfig & { _retry?: boolean };
+  const config = res.config as RetryConfig;
   if (config._retry) return res;
+
   config._retry = true;
-  const { data } = await supabase.auth.refreshSession();
-  if (!data.session) {
-    await supabase.auth.signOut();
+  try {
+    const refreshTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Token refresh timed out')), 10_000)
+    );
+    const { data } = await Promise.race([supabase.auth.refreshSession(), refreshTimeout]);
+    if (!data.session) {
+      supabase.auth.signOut();
+      return res;
+    }
+    setAuthToken(data.session.access_token);
+    config.headers.Authorization = `Bearer ${data.session.access_token}`;
+    config._tokenSet = true;
+    return apiClient(config);
+  } catch {
+    // Refresh failed or timed out — return the 401 for callers to handle
     return res;
   }
-  config.headers.Authorization = `Bearer ${data.session.access_token}`;
-  return apiClient(config);
 });
 
 /**

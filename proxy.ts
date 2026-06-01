@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -40,13 +40,13 @@ export async function middleware(request: NextRequest) {
 
   // Protected routes - require authentication and admin role
   const protectedPaths = ['/dashboard', '/users', '/settings', '/reports']
-  const isProtectedRoute = protectedPaths.some(path => 
+  const isProtectedRoute = protectedPaths.some(path =>
     request.nextUrl.pathname.startsWith(path)
   )
 
   // Auth routes - redirect if already authenticated
   const authPaths = ['/login']
-  const isAuthRoute = authPaths.some(path => 
+  const isAuthRoute = authPaths.some(path =>
     request.nextUrl.pathname.startsWith(path)
   )
 
@@ -66,17 +66,14 @@ export async function middleware(request: NextRequest) {
       .eq('id', session.user.id)
       .single()
 
-    if (userError || !userData || userData.role !== 'admin') {
-      // Log chi tiết để debug
-      console.error('[Middleware] Admin check failed:', {
+    if (userError || !userData || (userData.role !== 'admin' && userData.role !== 'staff')) {
+      console.error('[Proxy] Admin check failed:', {
         userId: session.user.id,
         userError: userError?.message,
-        userErrorDetails: userError,
         hasUserData: !!userData,
         userRole: userData?.role,
         path: request.nextUrl.pathname
       })
-      // Redirect to login if not admin
       return NextResponse.redirect(new URL('/login?error=not_admin', request.url))
     }
   }
@@ -90,8 +87,8 @@ export async function middleware(request: NextRequest) {
       .eq('id', session.user.id)
       .single()
 
-    if (!userError && userData && userData.role === 'admin') {
-      // Redirect to dashboard if admin
+    if (!userError && userData && (userData.role === 'admin' || userData.role === 'staff')) {
+      // Redirect to dashboard if admin/staff
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }

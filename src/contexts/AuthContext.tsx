@@ -5,6 +5,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useAppDispatch } from "@/store/hooks";
 import { setAuth, clearAuth, setAuthLoading } from "@/features/auth/authSlice";
+import { setAuthToken } from "@/lib/apiFetch";
 
 interface AuthContextType {
   user: User | null;
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const role = userData?.role ?? null;
     const admin = role === "admin" || role === "staff";
 
+    setAuthToken(session.access_token);
     dispatch(setAuth({
       userId: user.id,
       email: user.email ?? null,
@@ -93,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUserRole(null);
           setIsAdmin(false);
+          setAuthToken(null);
           dispatch(clearAuth());
         }
         setLoading(false);
