@@ -1,18 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Users, UserCheck, Activity, ShieldAlert, TrendingUp,
-  ShieldCheck, Zap, RefreshCw, AlertCircle,
+  ShieldCheck, Zap, RefreshCw, AlertCircle, CheckCircle2, XCircle, Clock,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { io, Socket } from "socket.io-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const SOCKET_URL = API_URL.replace(/\/api$/, "");
 
 interface FashnCredits { total: number; subscription: number; onDemand: number; }
+
+interface AdminEvent {
+  id: string;
+  type: "job_created" | "job_completed" | "job_failed" | "user_action" | "system";
+  message: string;
+  userId?: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
+}
 
 const stats = [
   { label: "Tổng người dùng",       value: "12,840", change: "+12.5%", icon: Users,       accent: "text-blue-600 bg-blue-50 ring-blue-100" },
@@ -27,6 +38,9 @@ export default function DashboardPage() {
   const [credits, setCredits] = useState<FashnCredits | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [creditsError, setCreditsError] = useState<string | null>(null);
+
+  const [events, setEvents] = useState<AdminEvent[]>([]);
+  const socketRef = useRef<Socket | null>(null);
 
   const fetchCredits = async () => {
     setCreditsLoading(true);
@@ -47,6 +61,39 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (session?.access_token) fetchCredits();
+  }, [session?.access_token]);
+
+  // Load initial events + connect Socket.IO for real-time log
+  useEffect(() => {
+    if (!session?.access_token) return;
+
+    // Fetch historical events
+    fetch(`${API_URL}/api/admin/events?limit=50`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((j) => { if (j.data) setEvents(j.data); })
+      .catch(() => {});
+
+    // Real-time via Socket.IO
+    const socket = io(SOCKET_URL, {
+      auth: { token: session.access_token },
+      transports: ["websocket", "polling"],
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("join-admin");
+    });
+
+    socket.on("admin_event", (event: AdminEvent) => {
+      setEvents((prev) => [event, ...prev].slice(0, 100));
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [session?.access_token]);
 
   return (
@@ -163,25 +210,43 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Activity log */}
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground">Nhật ký hệ thống</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">Các hành động gần nhất</p>
-          <div className="mt-4 space-y-3.5">
-            {[
-              { time: "15:30", text: "Khóa tài khoản bất thường", user: "haidang@example.com" },
-              { time: "14:12", text: "Nâng cấp phân quyền cho", user: "quochuy@example.com", suffix: "lên Staff" },
-              { time: "11:05", text: "Xuất báo cáo tháng 5/2026 dạng CSV" },
-            ].map((log, i) => (
-              <div key={i} className="flex gap-3 text-sm">
-                <span className="shrink-0 font-mono text-xs text-muted-foreground pt-0.5">{log.time}</span>
-                <p className="text-muted-foreground leading-relaxed">
-                  {log.text}{" "}
-                  {log.user && <span className="font-semibold text-foreground">{log.user}</span>}
-                  {log.suffix && ` ${log.suffix}`}
-                </p>
-              </div>
-            ))}
+        {/* Real-time event log */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                Nhật ký hệ thống
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+              </h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">Realtime qua Socket.IO</p>
+            </div>
+            <button
+              onClick={() => setEvents([])}
+              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Xóa log
+            </button>
+          </div>
+          <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+            {events.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">Chưa có sự kiện nào...</p>
+            ) : (
+              events.map((ev) => (
+                <div key={ev.id} className="flex items-start gap-2.5">
+                  {ev.type === "job_completed" && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />}
+                  {ev.type === "job_failed"    && <XCircle      className="size-3.5 text-red-500 shrink-0 mt-0.5" />}
+                  {ev.type === "job_created"   && <Clock        className="size-3.5 text-blue-500 shrink-0 mt-0.5" />}
+                  {(ev.type === "user_action" || ev.type === "system") && <Activity className="size-3.5 text-amber-500 shrink-0 mt-0.5" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-foreground leading-relaxed">{ev.message}</p>
+                    {ev.userId && <p className="text-[10px] text-muted-foreground font-mono truncate">{ev.userId}</p>}
+                  </div>
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground pt-0.5">
+                    {new Date(ev.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
