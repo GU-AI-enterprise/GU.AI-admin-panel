@@ -3,9 +3,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Headphones, Loader2, MessageCircle, RefreshCw, Send,
-  UserCheck, Clock, CheckCircle2, XCircle, AlertCircle, Lock, Inbox
+  UserCheck, Clock, CheckCircle2, XCircle, AlertCircle, Lock, Inbox,
+  Check, CheckCheck, ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+
 
 interface SupportUser {
   id: string;
@@ -40,6 +43,7 @@ interface SupportMessage {
   sender?: SupportUser | SupportUser[] | null;
 }
 
+
 function normalizeUser(u?: SupportUser | SupportUser[] | null): SupportUser | null {
   if (!u) return null;
   return Array.isArray(u) ? (u[0] ?? null) : u;
@@ -49,6 +53,26 @@ function initials(user: SupportUser | null): string {
   if (!user) return "?";
   const src = user.name || user.email || "";
   return src.slice(0, 2).toUpperCase();
+}
+
+function UserAvatar({ user, size = "md" }: { user: SupportUser | null; size?: "sm" | "md" }) {
+  const dim = size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs";
+  if (user?.avatar_url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={user.avatar_url}
+        alt={user.name || user.email || ""}
+        referrerPolicy="no-referrer"
+        className={`${dim} shrink-0 rounded-full object-cover border border-border/40`}
+      />
+    );
+  }
+  return (
+    <div className={`${dim} shrink-0 flex items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-violet-400/20 font-bold text-primary`}>
+      {initials(user)}
+    </div>
+  );
 }
 
 function timeAgo(dateStr: string): string {
@@ -285,9 +309,7 @@ export default function SupportDashboardPage() {
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-violet-400/20 text-xs font-bold text-primary">
-                        {initials(cust)}
-                      </div>
+                      <UserAvatar user={cust} />
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
@@ -330,15 +352,23 @@ export default function SupportDashboardPage() {
               {/* Chat header */}
               <div className="flex items-center justify-between border-b border-border px-5 py-3.5 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-violet-400/20 text-xs font-bold text-primary">
-                    {initials(customer)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {customer?.name || customer?.email?.split("@")[0] || "Người dùng"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{customer?.email}</p>
-                  </div>
+                  <Link
+                    href={`/dashboard/users?highlight=${selected.user_id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="group flex items-center gap-3 rounded-xl p-1 -m-1 hover:bg-accent transition-colors"
+                    title="Xem hồ sơ người dùng"
+                  >
+                    <UserAvatar user={customer} />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                          {customer?.name || customer?.email?.split("@")[0] || "Người dùng"}
+                        </p>
+                        <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">{customer?.email}</p>
+                    </div>
+                  </Link>
                 </div>
 
                 <div className="flex items-center gap-2.5">
@@ -403,43 +433,81 @@ export default function SupportDashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {messages.map((msg) => {
-                      const isMe = msg.sender_id === user?.id;
-                      const isCustomer = msg.sender_type === "customer";
-                      const isOtherStaff = !isMe && !isCustomer;
-                      const sender = normalizeUser(msg.sender);
-                      const alignRight = isMe;
+                    {(() => {
+                      // Last staff/admin message (mine or other) that customer has read
+                      let lastReadStaffIdx = -1;
+                      messages.forEach((m, i) => {
+                        if (m.sender_type !== "customer" && m.is_read) lastReadStaffIdx = i;
+                      });
+                      return messages.map((msg, msgIdx) => {
+                        const isMe = msg.sender_id === user?.id;
+                        const isCustomer = msg.sender_type === "customer";
+                        const isOtherStaff = !isMe && !isCustomer;
+                        const isImage = msg.message_type === "image";
+                        const sender = normalizeUser(msg.sender);
+                        const alignRight = isMe;
+                        const showReadReceipt = isMe && msgIdx === lastReadStaffIdx;
 
-                      let bubbleClass = "";
-                      let timeClass = "";
-                      if (isMe) {
-                        bubbleClass = "bg-primary text-primary-foreground";
-                        timeClass  = "text-primary-foreground/60";
-                      } else if (isOtherStaff) {
-                        bubbleClass = "bg-violet-100 text-violet-900";
-                        timeClass  = "text-violet-400";
-                      } else {
-                        bubbleClass = "bg-accent text-foreground";
-                        timeClass  = "text-muted-foreground";
-                      }
+                        let bubbleClass = "";
+                        let timeClass = "";
+                        if (isMe) {
+                          bubbleClass = "bg-primary text-primary-foreground";
+                          timeClass  = "text-primary-foreground/60";
+                        } else if (isOtherStaff) {
+                          bubbleClass = "bg-violet-100 text-violet-900";
+                          timeClass  = "text-violet-400";
+                        } else {
+                          bubbleClass = "bg-accent text-foreground";
+                          timeClass  = "text-muted-foreground";
+                        }
 
-                      let senderLabel = "";
-                      if (isMe) senderLabel = "Bạn";
-                      else if (isOtherStaff) senderLabel = sender?.name || sender?.email?.split("@")[0] || "Staff";
-                      else senderLabel = sender?.name || sender?.email?.split("@")[0] || "Khách hàng";
+                        let senderLabel = "";
+                        if (isMe) senderLabel = "Bạn";
+                        else if (isOtherStaff) senderLabel = sender?.name || sender?.email?.split("@")[0] || "Staff";
+                        else senderLabel = sender?.name || sender?.email?.split("@")[0] || "Khách hàng";
 
-                      return (
-                        <div key={msg.id} className={`flex flex-col ${alignRight ? "items-end" : "items-start"}`}>
-                          <p className="mb-1 px-1 text-[10px] text-muted-foreground">{senderLabel}</p>
-                          <div className={`max-w-[68%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${bubbleClass}`}>
-                            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                            <p className={`mt-1.5 text-[10px] ${timeClass}`}>
-                              {new Date(msg.created_at).toLocaleString("vi-VN")}
-                            </p>
+                        return (
+                          <div key={msg.id} className={`flex flex-col ${alignRight ? "items-end" : "items-start"}`}>
+                            <p className="mb-1 px-1 text-[10px] text-muted-foreground">{senderLabel}</p>
+
+                            {isImage ? (
+                              <div className={`max-w-[68%] overflow-hidden rounded-2xl shadow-sm ${bubbleClass}`}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={msg.content}
+                                  alt="Ảnh"
+                                  className="block max-h-64 w-auto max-w-full cursor-pointer object-cover"
+                                  onClick={() => window.open(msg.content, "_blank")}
+                                  loading="lazy"
+                                />
+                                <div className={`flex items-center justify-end gap-1 px-3 py-1.5 ${timeClass}`}>
+                                  <span className="text-[10px]">
+                                    {new Date(msg.created_at).toLocaleString("vi-VN")}
+                                  </span>
+                                  {isMe && (showReadReceipt
+                                    ? <CheckCheck className="h-3 w-3 text-sky-300 shrink-0" />
+                                    : <Check className="h-3 w-3 opacity-50 shrink-0" />
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className={`max-w-[68%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${bubbleClass}`}>
+                                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                                <div className={`mt-1.5 flex items-center justify-end gap-1 ${timeClass}`}>
+                                  <span className="text-[10px]">
+                                    {new Date(msg.created_at).toLocaleString("vi-VN")}
+                                  </span>
+                                  {isMe && (showReadReceipt
+                                    ? <CheckCheck className="h-3 w-3 text-sky-300 shrink-0" />
+                                    : <Check className="h-3 w-3 opacity-50 shrink-0" />
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                     <div ref={bottomRef} />
                   </div>
                 )}
@@ -499,6 +567,7 @@ export default function SupportDashboardPage() {
           )}
         </section>
       </div>
+
     </div>
   );
 }
