@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Search, RefreshCw } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiFetch } from "@/lib/apiFetch";
 import {
   fetchUsers, fetchStats,
   updateUserRole, updateUserStatus, deleteUser,
@@ -22,17 +23,16 @@ import { cn } from "@/lib/utils";
 import type { AdminUser } from "@/features/users/usersSlice";
 
 export default function UsersPage() {
-  const dispatch = useAppDispatch();
-  const router = useRouter();
+  const dispatch     = useAppDispatch();
+  const searchParams = useSearchParams();
+  const highlight   = searchParams.get("highlight");
+
   const { userRole } = useAuth();
   const isViewerAdmin = userRole === "admin";
+  const isViewerStaff = userRole === "staff";
 
-  // Chặn staff vào trang này
-  useEffect(() => {
-    if (userRole !== null && userRole !== "admin") {
-      router.replace("/dashboard");
-    }
-  }, [userRole, router]);
+  // User fetched directly for highlight (may not be on current page)
+  const [highlightUser, setHighlightUser] = useState<AdminUser | null>(null);
 
   // Redux selectors
   const users      = useAppSelector(selectUsers);
@@ -63,6 +63,27 @@ export default function UsersPage() {
   useEffect(() => {
     dispatch(fetchStats());
   }, [dispatch]);
+
+  // Auto-open sheet for highlighted user
+  useEffect(() => {
+    if (!highlight) return;
+
+    // Already in the loaded list — open directly
+    const inList = users.find(u => u.id === highlight);
+    if (inList) {
+      dispatch(openSheet(inList.id));
+      return;
+    }
+
+    // Not in list (different page/filter) — fetch by ID
+    if (isLoading) return; // wait for list to finish loading first
+    apiFetch(`/api/admin/users/${highlight}`)
+      .then(r => r.json())
+      .then(j => {
+        if (j.data?.user) setHighlightUser(j.data.user as AdminUser);
+      })
+      .catch(() => {});
+  }, [highlight, users, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -95,7 +116,9 @@ export default function UsersPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Quản lý người dùng</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Xem, phân quyền và quản lý tất cả tài khoản trong hệ thống.
+            {isViewerAdmin
+              ? "Xem, phân quyền và quản lý tất cả tài khoản trong hệ thống."
+              : "Xem danh sách người dùng và cộng credits."}
           </p>
         </div>
         <Button variant="outline" onClick={handleRefresh} loading={isRefreshing}>
@@ -181,16 +204,16 @@ export default function UsersPage() {
         onUpdateStatus={handleUpdateStatus}
       />
 
-      {/* User detail sheet */}
+      {/* User detail sheet — sheetUser (from list) OR highlightUser (fetched directly) */}
       <UserSheet
-        user={sheetUser ?? null}
-        open={!!sheetUser}
-        onClose={() => dispatch(closeSheet())}
+        user={sheetUser ?? highlightUser}
+        open={!!(sheetUser ?? highlightUser)}
+        onClose={() => { dispatch(closeSheet()); setHighlightUser(null); }}
         viewerRole={userRole}
         onUpdateRole={handleUpdateRole}
         onUpdateStatus={handleUpdateStatus}
         onDeleteClick={(u: AdminUser) => dispatch(openDeleteDialog(u.id))}
-        isUpdating={updatingId === sheetUser?.id}
+        isUpdating={updatingId === (sheetUser ?? highlightUser)?.id}
       />
 
       {/* Delete confirm */}

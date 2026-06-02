@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 const ALL_NAV_ITEMS = [
   { name: "Tổng quan",  href: "/dashboard",         icon: LayoutDashboard, adminOnly: false },
-  { name: "Người dùng", href: "/dashboard/users",   icon: Users,           adminOnly: true  },
+  { name: "Người dùng", href: "/dashboard/users",   icon: Users,           adminOnly: false },
   { name: "Hỗ trợ",     href: "/dashboard/support", icon: Headphones,      adminOnly: false },
   { name: "Phân quyền", href: "/dashboard/roles",   icon: ShieldCheck,     adminOnly: false },
 ];

@@ -214,18 +214,18 @@ export function UserSheet({
               )}
             </div>
 
-            {/* Footer */}
-            <div className="space-y-2 border-t border-border px-6 py-4">
-              <Button
-                variant={isLocked ? "success" : "warning"}
-                className="w-full"
-                onClick={() => onUpdateStatus(user.id, isLocked ? "active" : "locked")}
-                loading={isUpdating}
-              >
-                {!isUpdating && (isLocked ? <Unlock className="size-4" /> : <Lock className="size-4" />)}
-                {isLocked ? "Mở khóa tài khoản" : "Khóa tài khoản"}
-              </Button>
-              {isViewerAdmin && (
+            {/* Footer — admin only actions */}
+            {isViewerAdmin && (
+              <div className="space-y-2 border-t border-border px-6 py-4">
+                <Button
+                  variant={isLocked ? "success" : "warning"}
+                  className="w-full"
+                  onClick={() => onUpdateStatus(user.id, isLocked ? "active" : "locked")}
+                  loading={isUpdating}
+                >
+                  {!isUpdating && (isLocked ? <Unlock className="size-4" /> : <Lock className="size-4" />)}
+                  {isLocked ? "Mở khóa tài khoản" : "Khóa tài khoản"}
+                </Button>
                 <Button
                   variant="destructive"
                   className="w-full"
@@ -234,8 +234,8 @@ export function UserSheet({
                   <Trash2 className="size-4" />
                   Xóa vĩnh viễn
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
       </SheetContent>

@@ -118,25 +118,27 @@ export function UserTable({
                   {/* Actions */}
                   <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost" size="icon"
-                        loading={updatingId === user.id}
-                        onClick={() => onUpdateStatus(user.id, user.status === "active" ? "locked" : "active")}
-                        title={user.status === "active" ? "Khóa tài khoản" : "Mở khóa"}
-                        className={user.status === "active"
-                          ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
-                          : "text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50"}
-                      >
-                        {user.status === "active" ? <Lock className="size-4" /> : <Unlock className="size-4" />}
-                      </Button>
                       {isViewerAdmin && (
-                        <Button
-                          variant="ghost" size="icon"
-                          onClick={() => onOpenDelete(user)}
-                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost" size="icon"
+                            loading={updatingId === user.id}
+                            onClick={() => onUpdateStatus(user.id, user.status === "active" ? "locked" : "active")}
+                            title={user.status === "active" ? "Khóa tài khoản" : "Mở khóa"}
+                            className={user.status === "active"
+                              ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                              : "text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50"}
+                          >
+                            {user.status === "active" ? <Lock className="size-4" /> : <Unlock className="size-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost" size="icon"
+                            onClick={() => onOpenDelete(user)}
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </>
                       )}
                       <Button variant="outline" size="sm" onClick={() => onOpenSheet(user)}>
                         Chi tiết
