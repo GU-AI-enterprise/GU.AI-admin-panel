@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useAppDispatch } from "@/store/hooks";
@@ -26,35 +26,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
 
-  const syncUserToRedux = async (session: Session | null) => {
-    if (!session?.user) {
-      dispatch(clearAuth());
-      return;
-    }
+  // Track whether initial load has finished so the listener doesn't race with it
+  const initialLoadDone = useRef(false);
 
-    const { user } = session;
+  const syncUserToRedux = async (s: Session): Promise<{ role: string | null; admin: boolean }> => {
     const { data: userData } = await supabase
       .from("users")
       .select("role")
-      .eq("id", user.id)
+      .eq("id", s.user.id)
       .single();
 
     const role = userData?.role ?? null;
     const admin = role === "admin" || role === "staff";
 
-    setAuthToken(session.access_token);
+    setAuthToken(s.access_token);
     dispatch(setAuth({
-      userId: user.id,
-      email: user.email ?? null,
+      userId: s.user.id,
+      email: s.user.email ?? null,
       displayName:
-        user.user_metadata?.full_name ??
-        user.user_metadata?.name ??
-        user.email?.split("@")[0] ??
+        s.user.user_metadata?.full_name ??
+        s.user.user_metadata?.name ??
+        s.user.email?.split("@")[0] ??
         null,
-      avatarUrl: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
+      avatarUrl: s.user.user_metadata?.avatar_url ?? s.user.user_metadata?.picture ?? null,
       userRole: role,
       isAdmin: admin,
-      accessToken: session.access_token,
+      accessToken: s.access_token,
     }));
 
     return { role, admin };
@@ -62,34 +59,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     dispatch(setAuthLoading(true));
+    let mounted = true;
 
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-      if (session?.user) {
-        const result = await syncUserToRedux(session);
-        setUserRole(result?.role ?? null);
-        setIsAdmin(result?.admin ?? false);
-      } else {
-        dispatch(clearAuth());
+        setSession(s);
+        setUser(s?.user ?? null);
+
+        if (s?.user) {
+          const result = await syncUserToRedux(s).catch(() => null);
+          if (!mounted) return;
+          setUserRole(result?.role ?? null);
+          setIsAdmin(result?.admin ?? false);
+        } else {
+          dispatch(clearAuth());
+        }
+      } catch {
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+          dispatch(clearAuth());
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          initialLoadDone.current = true;
+        }
       }
-      setLoading(false);
     };
 
-    init().catch(() => {
-      dispatch(clearAuth());
-      setLoading(false);
-    });
+    init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, s) => {
+        if (!mounted) return;
 
-        if (session?.user) {
-          const result = await syncUserToRedux(session);
+        // Skip INITIAL_SESSION — init() handles it to avoid double DB calls
+        if (event === "INITIAL_SESSION") return;
+
+        setSession(s);
+        setUser(s?.user ?? null);
+
+        if (s?.user) {
+          const result = await syncUserToRedux(s).catch(() => null);
+          if (!mounted) return;
           setUserRole(result?.role ?? null);
           setIsAdmin(result?.admin ?? false);
         } else {
@@ -98,11 +114,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAuthToken(null);
           dispatch(clearAuth());
         }
-        setLoading(false);
+
+        // Only update loading if initial load is already done
+        if (initialLoadDone.current) {
+          setLoading(false);
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
@@ -111,9 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, session, loading, isAdmin, userRole, signOut }}
-    >
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, userRole, signOut }}>
       {children}
     </AuthContext.Provider>
   );

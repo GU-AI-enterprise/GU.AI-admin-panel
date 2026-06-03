@@ -444,19 +444,27 @@ function LogDetailSheet({ event, token, onClose }: {
               <section>
                 <SectionLabel icon={<User className="size-3"/>}>Người dùng</SectionLabel>
                 <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-                  {/* Avatar row */}
-                  <div className="flex items-center gap-3">
-                    <Avatar className="size-10">
+                  {/* Avatar row — clickable → user management */}
+                  <Link
+                    href={`/dashboard/users?highlight=${user.id}`}
+                    className="group flex items-center gap-3 rounded-lg p-1 -m-1 hover:bg-accent transition-colors"
+                  >
+                    <Avatar className="size-10 shrink-0">
                       <AvatarImage src={user.avatar_url ?? undefined} referrerPolicy="no-referrer"/>
                       <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
                         {(user.name || user.email).charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{user.name || "—"}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+                          {user.name || "—"}
+                        </p>
+                        <ExternalLink className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"/>
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                     </div>
-                  </div>
+                  </Link>
                   <Separator/>
                   <div className="divide-y divide-border/50">
                     <InfoRow label="Vai trò">
@@ -475,10 +483,6 @@ function LogDetailSheet({ event, token, onClose }: {
                       <InfoRow label="Đăng nhập cuối">{new Date(user.last_login_at).toLocaleDateString("vi-VN")}</InfoRow>
                     )}
                   </div>
-                  <Link href={`/dashboard/users?highlight=${user.id}`}
-                    className="flex items-center gap-1.5 text-xs text-primary hover:underline mt-1">
-                    <ExternalLink className="size-3"/> Xem hồ sơ đầy đủ
-                  </Link>
                 </div>
               </section>
             )}
