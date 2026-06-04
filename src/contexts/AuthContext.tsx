@@ -30,6 +30,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initialLoadDone = useRef(false);
 
   const syncUserToRedux = async (s: Session): Promise<{ role: string | null; admin: boolean }> => {
+    // Set token immediately — before any async work — so API calls made
+    // during or after this function always have a valid Bearer token.
+    setAuthToken(s.access_token);
+
     const { data: userData } = await supabase
       .from("users")
       .select("role")
@@ -39,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const role = userData?.role ?? null;
     const admin = role === "admin" || role === "staff";
 
-    setAuthToken(s.access_token);
     dispatch(setAuth({
       userId: s.user.id,
       email: s.user.email ?? null,
@@ -106,8 +109,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (s?.user) {
           const result = await syncUserToRedux(s).catch(() => null);
           if (!mounted) return;
-          setUserRole(result?.role ?? null);
-          setIsAdmin(result?.admin ?? false);
+          // Only update role/admin when DB query succeeded.
+          // A transient failure must not clear isAdmin and kick the user out.
+          if (result !== null) {
+            setUserRole(result.role);
+            setIsAdmin(result.admin);
+          }
         } else {
           setUserRole(null);
           setIsAdmin(false);

@@ -43,7 +43,9 @@ apiClient.interceptors.response.use(async (res) => {
     );
     const { data } = await Promise.race([supabase.auth.refreshSession(), refreshTimeout]);
     if (!data.session) {
-      supabase.auth.signOut();
+      // Don't force signOut here — a network blip can return null session
+      // even when the refresh token is still valid. Let the auth state change
+      // listener handle genuine expiry naturally via the SIGNED_OUT event.
       return res;
     }
     setAuthToken(data.session.access_token);
