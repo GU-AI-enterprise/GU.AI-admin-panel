@@ -114,9 +114,11 @@ export default function DashboardPage() {
     if (tab === "payments") { setTxOffset(0); fetchTransactions(0, false); }
   }, [tab, txStatusFilter]); // eslint-disable-line
 
-  // Keep a stable ref so the socket handler always calls the latest fetchTransactions
-  const fetchTransactionsRef = useRef(fetchTransactions);
+  // Stable refs — socket handler always sees latest values without re-connecting
+  const fetchTransactionsRef  = useRef(fetchTransactions);
+  const txStatusFilterRef     = useRef(txStatusFilter);
   useEffect(() => { fetchTransactionsRef.current = fetchTransactions; }, [fetchTransactions]);
+  useEffect(() => { txStatusFilterRef.current    = txStatusFilter;    }, [txStatusFilter]);
 
   // ── Socket.IO ───────────────────────────────────────────────────────────────
 
@@ -127,13 +129,54 @@ export default function DashboardPage() {
     s.on("connect",    () => { setConnected(true); s.emit("join-admin"); });
     s.on("disconnect", () => setConnected(false));
     s.on("admin_event", (ev: AdminEvent) => {
-      if (ev.timestamp.slice(0,10) === selectedDate) {
-        setEvents(p => [ev, ...p]);
-        setStats(p => ({ ...p, total: p.total+1, [ev.type]: ((p as any)[ev.type]||0)+1 }));
+      // ── AI Jobs tab — exclude payment events ────────────────────────────────
+      if (ev.type !== "payment_created" && ev.type !== "payment_updated") {
+        if (ev.timestamp.slice(0,10) === selectedDate) {
+          setEvents(p => [ev, ...p]);
+          setStats(p => ({ ...p, total: p.total+1, [ev.type]: ((p as any)[ev.type]||0)+1 }));
+        }
       }
-      if (ev.type === "user_action" && ev.metadata?.transactionId) {
-        fetchTransactionsRef.current(0, false);
-        setTxStats(p => ({ ...p, successCount: p.successCount+1, totalRevenue: p.totalRevenue + (ev.metadata?.amount ?? 0) }));
+
+      // ── New pending transaction ─────────────────────────────────────────────
+      if (ev.type === "payment_created" && ev.metadata?.transaction) {
+        const newTx = ev.metadata.transaction as Transaction;
+        const filter = txStatusFilterRef.current;
+        if (filter === "all" || filter === "pending") {
+          setTransactions(p => [newTx, ...p]);
+          setTxTotal(p => p + 1);
+        }
+        setTxStats(p => ({ ...p, pendingCount: p.pendingCount + 1 }));
+      }
+
+      // ── Transaction status changed (success / failed / cancelled) ───────────
+      if (ev.type === "payment_updated" && ev.metadata?.transactionId) {
+        const { transactionId, status, paid_at, amount } = ev.metadata;
+        const filter = txStatusFilterRef.current;
+
+        if (filter === "all") {
+          // Update in-place — no reload needed
+          setTransactions(p => p.map(tx =>
+            tx.id === transactionId
+              ? { ...tx, status, paid_at: paid_at ?? tx.paid_at, updated_at: new Date().toISOString() }
+              : tx,
+          ));
+        } else if (filter === "pending" && status !== "pending") {
+          // Transaction left the "pending" filter — remove from list
+          setTransactions(p => p.filter(tx => tx.id !== transactionId));
+          setTxTotal(p => Math.max(0, p - 1));
+        } else {
+          // Other filter (e.g. "success") — full reload to be safe
+          fetchTransactionsRef.current(0, false);
+        }
+
+        if (status === "success") {
+          setTxStats(p => ({
+            ...p,
+            successCount:  p.successCount + 1,
+            pendingCount:  Math.max(0, p.pendingCount - 1),
+            totalRevenue:  p.totalRevenue + (Number(amount) || 0),
+          }));
+        }
       }
     });
     return () => { s.disconnect(); socketRef.current = null; setConnected(false); };

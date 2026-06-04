@@ -2,7 +2,8 @@ export interface FashnCredits { total: number; subscription: number; onDemand: n
 
 export interface AdminEvent {
   id: string;
-  type: "job_created" | "job_completed" | "job_failed" | "user_action" | "system";
+  type: "job_created" | "job_completed" | "job_failed" | "user_action" | "system"
+      | "payment_created" | "payment_updated";
   message: string;
   userId?: string;
   metadata?: Record<string, any>;
