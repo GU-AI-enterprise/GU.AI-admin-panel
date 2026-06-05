@@ -124,10 +124,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!session?.access_token) return;
-    const s = io(SOCKET_URL, { auth: { token: session.access_token }, transports: ["websocket","polling"] });
+    const s = io(SOCKET_URL, {
+      auth: { token: session.access_token },
+      transports: ["websocket"],   // polling disabled — avoids JSON.parse errors on HTTP error pages
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
     socketRef.current = s;
-    s.on("connect",    () => { setConnected(true); s.emit("join-admin"); });
-    s.on("disconnect", () => setConnected(false));
+    s.on("connect",       () => { setConnected(true); s.emit("join-admin"); });
+    s.on("disconnect",    () => setConnected(false));
+    s.on("connect_error", (err) => { console.warn("[Socket] connect_error:", err.message); });
     s.on("admin_event", (ev: AdminEvent) => {
       // ── AI Jobs tab — exclude payment events ────────────────────────────────
       if (ev.type !== "payment_created" && ev.type !== "payment_updated") {
