@@ -40,7 +40,7 @@ export interface UserDetail {
 
 export interface JobDetail {
   id: string; type: string; status: string; credit_cost: number;
-  input_params: Record<string, any>; error_message: string | null;
+  input_params: Record<string, any>; prompt?: string | null; error_message: string | null;
   created_at: string; completed_at: string | null; provider: string;
 }
 

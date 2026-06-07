@@ -130,7 +130,24 @@ export function UserSection({ user }: { user: any }) {
   );
 }
 
+const INPUT_PARAM_LABELS: Record<string, string> = {
+  category: "Danh mục", mode: "Chế độ", resolution: "Độ phân giải",
+  generationMode: "Gen mode", numImages: "Số ảnh", aspectRatio: "Tỉ lệ",
+  duration: "Thời lượng", hasMask: "Có mask", hasContext: "Có context",
+  seed: "Seed",
+};
+
+function formatParamValue(key: string, value: unknown): string {
+  if (typeof value === "boolean") return value ? "Có" : "Không";
+  if (value === null || value === undefined) return "—";
+  return String(value);
+}
+
 export function JobSection({ job, outputs }: { job: JobDetail; outputs: { asset: { url: string; thumbnail_url: string } }[] }) {
+  const inputEntries = Object.entries(job.input_params ?? {}).filter(
+    ([, v]) => v !== null && v !== undefined && v !== "",
+  );
+
   return (
     <section>
       <SectionLabel icon={<Briefcase className="size-3"/>}>AI Job</SectionLabel>
@@ -150,6 +167,30 @@ export function JobSection({ job, outputs }: { job: JobDetail; outputs: { asset:
           <InfoRow label="Bắt đầu">{new Date(job.created_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</InfoRow>
           {job.completed_at && <InfoRow label="Hoàn thành">{new Date(job.completed_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</InfoRow>}
         </div>
+
+        {/* User prompt */}
+        {job.prompt && (
+          <div className="rounded-lg bg-muted border border-border/60 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Prompt</p>
+            <p className="text-xs text-foreground leading-relaxed break-words">{job.prompt}</p>
+          </div>
+        )}
+
+        {/* Input params */}
+        {inputEntries.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Tham số</p>
+            <div className="flex flex-wrap gap-1.5">
+              {inputEntries.map(([key, value]) => (
+                <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border/60 text-[11px]">
+                  <span className="text-muted-foreground">{INPUT_PARAM_LABELS[key] ?? key}:</span>
+                  <span className="font-medium text-foreground">{formatParamValue(key, value)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {job.error_message && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2">
             <p className="text-xs text-red-600 leading-relaxed">{job.error_message}</p>
