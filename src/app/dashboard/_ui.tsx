@@ -200,10 +200,13 @@ export function JobSection({ job, outputs }: { job: JobDetail; outputs: { asset:
           <>
             <Separator/>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Ảnh output</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Output</p>
               <a href={outputs[0].asset.url} target="_blank" rel="noreferrer" className="block group">
-                <img src={outputs[0].asset.thumbnail_url || outputs[0].asset.url} alt="Output"
-                  className="w-full rounded-lg border border-border object-cover max-h-52 group-hover:opacity-90 transition-opacity"/>
+                {(outputs[0].asset as any).type === 'video'
+                  ? <video src={outputs[0].asset.url} controls className="w-full rounded-lg border border-border max-h-52"/>
+                  : <img src={outputs[0].asset.thumbnail_url || outputs[0].asset.url} alt="Output"
+                      className="w-full rounded-lg border border-border object-cover max-h-52 group-hover:opacity-90 transition-opacity"/>
+                }
               </a>
             </div>
           </>
