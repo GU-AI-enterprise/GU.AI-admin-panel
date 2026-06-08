@@ -102,9 +102,7 @@ function LoginContent() {
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-primary/20 shadow-sm">
-            <Image src="/lotus.svg" alt="GU.AI" width={32} height={32} />
-          </div>
+          <Image src="/admin-logo.png" alt="GU.AI" width={64} height={64} className="object-contain" />
           <h2 className="mt-5 text-2xl font-bold tracking-tight text-foreground">
             Chào mừng quay lại
           </h2>

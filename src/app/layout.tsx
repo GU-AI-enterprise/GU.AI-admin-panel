@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   title: "GU.AI Admin Console",
   description: "Hệ thống quản trị nội bộ GU.AI – AI Virtual Fashion Model Platform",
   icons: {
-    icon: "/lotus.svg",
-    apple: "/lotus.svg",
+    icon: "/admin-logo.png",
+    apple: "/admin-logo.png",
   },
 };
 

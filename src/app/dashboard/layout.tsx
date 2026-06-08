@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <Image src="/lotus.svg" alt="GU.AI" width={40} height={40} className="animate-pulse opacity-60" />
+          <Image src="/admin-logo.png" alt="GU.AI" width={40} height={40} className="animate-pulse opacity-60" />
           <div className="h-1 w-24 overflow-hidden rounded-full bg-border">
             <div className="h-full w-1/2 animate-[shimmer_1.4s_infinite] rounded-full bg-primary/40" />
           </div>
@@ -82,9 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {/* Logo */}
         <div className="flex items-center gap-3 border-b px-6 py-5" style={{ borderColor: "var(--sidebar-border)" }}>
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
-            <Image src="/lotus.svg" alt="GU.AI" width={22} height={22} className="drop-shadow-sm" />
-          </div>
+          <Image src="/admin-logo.png" alt="GU.AI" width={36} height={36} className="object-contain shrink-0" />
           <div className="leading-tight">
             <span className="block text-[15px] font-bold tracking-tight text-foreground">GU.AI</span>
             <span className="block text-[11px] text-muted-foreground">Management Console</span>
@@ -158,7 +156,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Mobile logo */}
             <div className="flex items-center gap-2 md:hidden">
-              <Image src="/lotus.svg" alt="GU.AI" width={20} height={20} />
+              <Image src="/admin-logo.png" alt="GU.AI" width={20} height={20} />
               <span className="font-bold text-foreground">GU.AI</span>
             </div>
 
