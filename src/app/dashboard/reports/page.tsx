@@ -173,7 +173,7 @@ export default function ReportsPage() {
                   <XAxis dataKey="date" tickFormatter={formatXAxis} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                  <Tooltip labelFormatter={formatTooltipLabel} formatter={(v: number) => [v.toLocaleString(), "Credits"]} contentStyle={{ borderRadius: '8px', fontSize: '13px', border: '1px solid #e5e7eb' }} />
+                  <Tooltip labelFormatter={formatTooltipLabel} formatter={(v) => [typeof v === 'number' ? v.toLocaleString() : v, "Credits"]} contentStyle={{ borderRadius: '8px', fontSize: '13px', border: '1px solid #e5e7eb' }} />
                   <Area type="monotone" dataKey="credits" name="Credits" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorCredit)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -193,7 +193,7 @@ export default function ReportsPage() {
                   <XAxis dataKey="date" tickFormatter={formatXAxis} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                  <Tooltip labelFormatter={formatTooltipLabel} formatter={(v: number) => [v, "Users"]} contentStyle={{ borderRadius: '8px', fontSize: '13px', border: '1px solid #e5e7eb' }} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
+                  <Tooltip labelFormatter={formatTooltipLabel} formatter={(v) => [v, "Users"]} contentStyle={{ borderRadius: '8px', fontSize: '13px', border: '1px solid #e5e7eb' }} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
                   <Bar dataKey="users" name="New Users" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -213,7 +213,7 @@ export default function ReportsPage() {
                   <XAxis dataKey="date" tickFormatter={formatXAxis} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={(v) => `${v / 1000}k`} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                  <Tooltip labelFormatter={formatTooltipLabel} formatter={(v: number) => [`${v.toLocaleString("vi-VN")}đ`, "Doanh thu"]} contentStyle={{ borderRadius: '8px', fontSize: '13px', border: '1px solid #e5e7eb' }} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
+                  <Tooltip labelFormatter={formatTooltipLabel} formatter={(v) => [typeof v === 'number' ? `${v.toLocaleString("vi-VN")}đ` : v, "Doanh thu"]} contentStyle={{ borderRadius: '8px', fontSize: '13px', border: '1px solid #e5e7eb' }} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
                   <Bar dataKey="revenue" name="Doanh thu" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
