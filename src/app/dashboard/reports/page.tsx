@@ -84,16 +84,17 @@ export default function ReportsPage() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  const formatXAxis = (v: string) => {
+  const formatXAxis = (v: any) => {
+    if (typeof v !== 'string') return v;
     if (range === "today") return v; // e.g., "14:00"
     if (range === "1y") {
       const [year, month] = v.split("-");
-      return `T${month}/${year.slice(2)}`;
+      return month ? `T${month}/${year.slice(2)}` : v;
     }
-    return v.slice(5, 10); // e.g., "08-01"
+    return v.length >= 10 ? v.slice(5, 10) : v; // e.g., "08-01"
   };
 
-  const formatTooltipLabel = (v: string) => {
+  const formatTooltipLabel = (v: any) => {
     if (range === "today") return `Giờ: ${v}`;
     if (range === "1y") return `Tháng: ${v}`;
     return `Ngày: ${v}`;
