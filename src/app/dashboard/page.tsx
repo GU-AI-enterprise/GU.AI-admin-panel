@@ -466,10 +466,10 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-border bg-card p-4">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Lối tắt</h3>
           <div className="grid grid-cols-2 gap-2">
+            <QuickLink href="/dashboard/reports" icon={TrendingUp} label="Báo cáo"/>
             <QuickLink href="/dashboard/users"   icon={Users}       label="Users"/>
             <QuickLink href="/dashboard/support" icon={Activity}    label="Support"/>
             <QuickLink href="/dashboard/roles"   icon={ShieldCheck} label="Quyền"/>
-            <QuickLink href="/dashboard"         icon={CreditCard}  label="Thanh toán"/>
           </div>
         </div>
       </div>

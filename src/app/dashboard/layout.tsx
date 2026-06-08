@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Users, LayoutDashboard, ShieldCheck, Headphones,
-  LogOut, Bell, Menu, X, ChevronRight,
+  LogOut, Bell, Menu, X, ChevronRight, TrendingUp
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 const ALL_NAV_ITEMS = [
   { name: "Tổng quan",  href: "/dashboard",         icon: LayoutDashboard, adminOnly: false },
   { name: "Người dùng", href: "/dashboard/users",   icon: Users,           adminOnly: false },
+  { name: "Báo cáo",    href: "/dashboard/reports", icon: TrendingUp,      adminOnly: false },
   { name: "Hỗ trợ",     href: "/dashboard/support", icon: Headphones,      adminOnly: false },
   { name: "Phân quyền", href: "/dashboard/roles",   icon: ShieldCheck,     adminOnly: false },
 ];
