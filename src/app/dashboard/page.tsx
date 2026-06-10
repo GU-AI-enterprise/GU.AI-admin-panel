@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [txLoading,       setTxLoading]       = useState(false);
   const [txLoadingMore,   setTxLoadingMore]   = useState(false);
   const [txStatusFilter,  setTxStatusFilter]  = useState("all");
+  const [txSelectedDate,  setTxSelectedDate]  = useState(todayLocal());
 
   // Socket
   const [connected, setConnected] = useState(false);
@@ -94,11 +95,11 @@ export default function DashboardPage() {
 
   // ── Transactions ────────────────────────────────────────────────────────────
 
-  const fetchTransactions = useCallback(async (off: number, append: boolean, statusFilter = txStatusFilter) => {
+  const fetchTransactions = useCallback(async (off: number, append: boolean, statusFilter = txStatusFilter, dateFilter = txSelectedDate) => {
     if (!session?.access_token) return;
     if (append) setTxLoadingMore(true); else setTxLoading(true);
     try {
-      const qs = new URLSearchParams({ limit: String(LIMIT), offset: String(off), status: statusFilter });
+      const qs = new URLSearchParams({ limit: String(LIMIT), offset: String(off), status: statusFilter, dateFrom: dateFilter, dateTo: dateFilter });
       const r  = await fetch(`${API_URL}/api/admin/transactions?${qs}`, { headers: hdrs() });
       const j  = await r.json(); const d = j.data;
       if (append) setTransactions(p => [...p, ...(d.transactions ?? [])]);
@@ -108,11 +109,11 @@ export default function DashboardPage() {
       setHasMoreTx(d.hasMore ?? false);
       setTxOffset(off + (d.transactions?.length ?? 0));
     } catch {} finally { setTxLoading(false); setTxLoadingMore(false); }
-  }, [session?.access_token, hdrs, txStatusFilter]);
+  }, [session?.access_token, hdrs, txStatusFilter, txSelectedDate]);
 
   useEffect(() => {
     if (tab === "payments") { setTxOffset(0); fetchTransactions(0, false); }
-  }, [tab, txStatusFilter]); // eslint-disable-line
+  }, [tab, txStatusFilter, txSelectedDate]); // eslint-disable-line
 
   // Stable refs — socket handler always sees latest values without re-connecting
   const fetchTransactionsRef  = useRef(fetchTransactions);
@@ -188,7 +189,8 @@ export default function DashboardPage() {
     return () => { s.disconnect(); socketRef.current = null; setConnected(false); };
   }, [session?.access_token, selectedDate]); // eslint-disable-line
 
-  const isToday = selectedDate === todayLocal();
+  const isToday   = selectedDate   === todayLocal();
+  const isTodayTx = txSelectedDate === todayLocal();
 
   return (
     <div className="h-[calc(100vh-5rem)] flex gap-5 animate-fade-in">
@@ -241,14 +243,28 @@ export default function DashboardPage() {
               </>
             )}
             {tab === "payments" && (
-              <select value={txStatusFilter} onChange={e => setTxStatusFilter(e.target.value)}
-                className="text-xs py-1.5 px-2.5 rounded-lg border border-border bg-background focus:border-primary focus:outline-none cursor-pointer">
-                <option value="all">Tất cả</option>
-                <option value="success">Thành công</option>
-                <option value="pending">Chờ xử lý</option>
-                <option value="failed">Thất bại</option>
-                <option value="cancelled">Đã hủy</option>
-              </select>
+              <>
+                <div className="relative flex items-center">
+                  <CalendarDays className="absolute left-2.5 size-3.5 text-muted-foreground pointer-events-none"/>
+                  <input type="date" value={txSelectedDate} max={todayLocal()}
+                    onChange={e => setTxSelectedDate(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background focus:border-primary focus:outline-none cursor-pointer"/>
+                </div>
+                {!isTodayTx && (
+                  <button onClick={() => setTxSelectedDate(todayLocal())}
+                    className="text-xs px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium">
+                    Hôm nay
+                  </button>
+                )}
+                <select value={txStatusFilter} onChange={e => setTxStatusFilter(e.target.value)}
+                  className="text-xs py-1.5 px-2.5 rounded-lg border border-border bg-background focus:border-primary focus:outline-none cursor-pointer">
+                  <option value="all">Tất cả</option>
+                  <option value="success">Thành công</option>
+                  <option value="pending">Chờ xử lý</option>
+                  <option value="failed">Thất bại</option>
+                  <option value="cancelled">Đã hủy</option>
+                </select>
+              </>
             )}
             <button
               onClick={() => tab === "jobs"
@@ -279,7 +295,10 @@ export default function DashboardPage() {
           ) : (
             <>
               <span className="text-[11px] text-muted-foreground">
-                <span className="font-medium text-foreground">{txTotal}</span> giao dịch
+                {isTodayTx
+                  ? "Hôm nay"
+                  : new Date(txSelectedDate+"T12:00:00").toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"})}
+                {" · "}<span className="font-medium text-foreground">{txTotal} giao dịch</span>
               </span>
               <div className="flex items-center gap-3 ml-auto">
                 <StatChip value={txStats.successCount} label="Thành công" color="text-emerald-600" dot="bg-emerald-500"/>
