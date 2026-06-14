@@ -66,8 +66,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const init = async () => {
       try {
-        const { data: { session: s } } = await supabase.auth.getSession();
+        let { data: { session: s } } = await supabase.auth.getSession();
         if (!mounted) return;
+
+        // If the stored session is expired (or within 60s of expiring), force a
+        // refresh NOW before making any DB calls — otherwise syncUserToRedux
+        // will fail with an expired JWT and isAdmin stays false, causing an
+        // immediate redirect to login before the background refresh finishes.
+        if (s?.expires_at && s.expires_at - Date.now() / 1000 < 60) {
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          if (!mounted) return;
+          s = refreshed.session;
+        }
 
         setSession(s);
         setUser(s?.user ?? null);
