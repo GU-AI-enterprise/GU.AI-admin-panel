@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Search, RefreshCw } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStaffPresence } from "@/hooks/useStaffPresence";
 import { apiFetch } from "@/lib/apiFetch";
 import {
   fetchUsers, fetchStats,
@@ -27,9 +28,10 @@ export default function UsersPage() {
   const searchParams = useSearchParams();
   const highlight   = searchParams.get("highlight");
 
-  const { userRole } = useAuth();
+  const { userRole, session } = useAuth();
   const isViewerAdmin = userRole === "admin";
   const isViewerStaff = userRole === "staff";
+  const onlineStaffIds = useStaffPresence(session?.access_token ?? null);
 
   // User fetched directly for highlight (may not be on current page)
   const [highlightUser, setHighlightUser] = useState<AdminUser | null>(null);
@@ -197,6 +199,7 @@ export default function UsersPage() {
         limit={pagination.limit}
         total={pagination.total}
         totalPages={pagination.totalPages}
+        onlineStaffIds={onlineStaffIds}
         onPageChange={(p) => dispatch(setPage(p))}
         onOpenSheet={(u: AdminUser) => dispatch(openSheet(u.id))}
         onOpenDelete={(u: AdminUser) => dispatch(openDeleteDialog(u.id))}

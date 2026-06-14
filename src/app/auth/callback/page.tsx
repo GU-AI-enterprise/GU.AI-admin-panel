@@ -38,7 +38,7 @@ function AuthCallbackContent() {
             // Kiểm tra role admin
             const { data: userData, error: userError } = await supabase
               .from('users')
-              .select('role')
+              .select('role, status')
               .eq('id', newSession.user.id)
               .single();
 
@@ -54,7 +54,19 @@ function AuthCallbackContent() {
               return;
             }
 
-            // Là admin/staff - tiếp tục
+            if (userData.status === 'banned' || userData.status === 'locked') {
+              await supabase.auth.signOut();
+              setIsError(true);
+              setErrorDetail("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên cấp cao.");
+              setStatusMessage("Tài khoản bị khóa. Đang chuyển hướng...");
+              setTimeout(() => {
+                router.push("/login?error=account_locked");
+              }, 2000);
+              authListener.subscription.unsubscribe();
+              return;
+            }
+
+            // Là admin/staff active - tiếp tục
             setStatusMessage("Đăng nhập thành công! Đang chuyển hướng...");
             setTimeout(() => {
               router.push("/dashboard");
@@ -74,10 +86,10 @@ function AuthCallbackContent() {
           if (!isError) {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-              // Kiểm tra role admin
+              // Kiểm tra role và status
               const { data: userData, error: userError } = await supabase
                 .from('users')
-                .select('role')
+                .select('role, status')
                 .eq('id', session.user.id)
                 .single();
 
@@ -88,6 +100,18 @@ function AuthCallbackContent() {
                 setStatusMessage("Không có quyền truy cập. Đang chuyển hướng...");
                 setTimeout(() => {
                   router.push("/login?error=not_admin");
+                }, 2000);
+                authListener.subscription.unsubscribe();
+                return;
+              }
+
+              if (userData.status === 'banned' || userData.status === 'locked') {
+                await supabase.auth.signOut();
+                setIsError(true);
+                setErrorDetail("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên cấp cao.");
+                setStatusMessage("Tài khoản bị khóa. Đang chuyển hướng...");
+                setTimeout(() => {
+                  router.push("/login?error=account_locked");
                 }, 2000);
                 authListener.subscription.unsubscribe();
                 return;

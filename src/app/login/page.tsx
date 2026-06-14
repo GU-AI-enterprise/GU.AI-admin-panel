@@ -16,7 +16,11 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(errorParam === 'not_admin' ? "Bạn không có quyền truy cập Admin Panel." : "");
+  const [error, setError] = useState(
+    errorParam === 'not_admin' ? "Bạn không có quyền truy cập Admin Panel." :
+    errorParam === 'account_locked' ? "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên cấp cao." :
+    ""
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +42,7 @@ function LoginContent() {
       if (data?.session?.user) {
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('role')
+          .select('role, status')
           .eq('id', data.session.user.id)
           .single();
 
@@ -47,12 +51,15 @@ function LoginContent() {
         }
 
         if (userData.role !== 'admin' && userData.role !== 'staff') {
-          // Không phải admin/staff - logout và báo lỗi
           await supabase.auth.signOut();
           throw new Error("Bạn không có quyền truy cập. Chỉ Admin và Staff mới được phép đăng nhập.");
         }
 
-        // Là admin - redirect
+        if (userData.status === 'banned' || userData.status === 'locked') {
+          await supabase.auth.signOut();
+          throw new Error("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên cấp cao.");
+        }
+
         router.push(redirect);
         router.refresh();
       }

@@ -24,6 +24,7 @@ interface UserTableProps {
   limit: number;
   total: number;
   totalPages: number;
+  onlineStaffIds?: Set<string>;
   onPageChange: (page: number) => void;
   onOpenSheet: (user: AdminUser) => void;
   onOpenDelete: (user: AdminUser) => void;
@@ -33,7 +34,7 @@ interface UserTableProps {
 
 export function UserTable({
   users, isLoading, isViewerAdmin, updatingId,
-  page, limit, total, totalPages,
+  page, limit, total, totalPages, onlineStaffIds,
   onPageChange, onOpenSheet, onOpenDelete,
   onUpdateRole, onUpdateStatus,
 }: UserTableProps) {
@@ -82,10 +83,18 @@ export function UserTable({
                   {/* User */}
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <Avatar className="size-9 shrink-0">
-                        <AvatarImage src={user.avatar_url ?? undefined} />
-                        <AvatarFallback className="text-xs font-bold">{initials(user)}</AvatarFallback>
-                      </Avatar>
+                      <div className="relative shrink-0">
+                        <Avatar className="size-9">
+                          <AvatarImage src={user.avatar_url ?? undefined} />
+                          <AvatarFallback className="text-xs font-bold">{initials(user)}</AvatarFallback>
+                        </Avatar>
+                        {(user.role === "staff" || user.role === "admin") && (
+                          <span className={cn(
+                            "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card",
+                            onlineStaffIds?.has(user.id) ? "bg-emerald-500" : "bg-muted-foreground/30"
+                          )} />
+                        )}
+                      </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-foreground">{displayName(user)}</p>
                         <p className="truncate text-xs text-muted-foreground">{user.email}</p>
