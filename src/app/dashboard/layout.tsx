@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Users, LayoutDashboard, ShieldCheck, Headphones,
-  LogOut, Bell, Menu, X, ChevronRight, TrendingUp
+  LogOut, Bell, Menu, X, ChevronRight, TrendingUp, Mail
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -19,6 +19,7 @@ const ALL_NAV_ITEMS = [
   { name: "Báo cáo",    href: "/dashboard/reports", icon: TrendingUp,      adminOnly: false },
   { name: "Hỗ trợ",     href: "/dashboard/support", icon: Headphones,      adminOnly: false },
   { name: "Phân quyền", href: "/dashboard/roles",   icon: ShieldCheck,     adminOnly: false },
+  { name: "Email",      href: "/dashboard/email",   icon: Mail,            adminOnly: false },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
