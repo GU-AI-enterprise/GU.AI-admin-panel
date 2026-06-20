@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  Users, LayoutDashboard, ShieldCheck, Headphones,
+  Users, LayoutDashboard, Headphones,
   LogOut, Bell, Menu, X, ChevronRight, TrendingUp, Mail
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,7 +18,6 @@ const ALL_NAV_ITEMS = [
   { name: "Người dùng", href: "/dashboard/users",   icon: Users,           adminOnly: false },
   { name: "Báo cáo",    href: "/dashboard/reports", icon: TrendingUp,      adminOnly: false },
   { name: "Hỗ trợ",     href: "/dashboard/support", icon: Headphones,      adminOnly: false },
-  { name: "Phân quyền", href: "/dashboard/roles",   icon: ShieldCheck,     adminOnly: false },
   { name: "Email",      href: "/dashboard/email",   icon: Mail,            adminOnly: false },
 ];
 

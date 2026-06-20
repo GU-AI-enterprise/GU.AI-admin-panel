@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Users, Activity, ShieldCheck, Zap, RefreshCw, AlertCircle,
+  Users, Activity, Mail, Zap, RefreshCw, AlertCircle,
   CheckCircle2, XCircle, Clock, Wifi, WifiOff,
   CalendarDays, Briefcase, CreditCard, Coins, TrendingUp,
 } from "lucide-react";
@@ -488,7 +488,7 @@ export default function DashboardPage() {
             <QuickLink href="/dashboard/reports" icon={TrendingUp} label="Báo cáo"/>
             <QuickLink href="/dashboard/users"   icon={Users}       label="Users"/>
             <QuickLink href="/dashboard/support" icon={Activity}    label="Support"/>
-            <QuickLink href="/dashboard/roles"   icon={ShieldCheck} label="Quyền"/>
+            <QuickLink href="/dashboard/email"   icon={Mail}        label="Email"/>
           </div>
         </div>
       </div>

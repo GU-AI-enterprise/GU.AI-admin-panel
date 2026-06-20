@@ -7,7 +7,9 @@ import {
   Check, CheckCheck, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
+import { io, Socket } from "socket.io-client";
 import { useAuth } from "@/contexts/AuthContext";
+import { SOCKET_URL } from "../_config";
 
 
 interface SupportUser {
@@ -105,6 +107,8 @@ export default function SupportDashboardPage() {
   const [error, setError] = useState("");
   const [lockedBy, setLockedBy] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   const token = session?.access_token;
@@ -145,6 +149,13 @@ export default function SupportDashboardPage() {
     }
   };
 
+  // Stable refs — socket handlers always see the latest fetch fns/selection without reconnecting
+  const fetchListRef = useRef(fetchList);
+  const fetchMessagesRef = useRef(fetchMessages);
+  useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+  useEffect(() => { fetchMessagesRef.current = fetchMessages; }, [fetchMessages]);
+  useEffect(() => { selectedIdRef.current = selected?.id ?? null; }, [selected?.id]);
+
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { fetchList(); }, [token, statusFilter]);
 
@@ -152,14 +163,49 @@ export default function SupportDashboardPage() {
     if (selected?.id) fetchMessages(selected.id);
   }, [selected?.id, token]);
 
+  // Socket.IO — real-time updates instead of polling. Join "admins" room for new-message
+  // badges across all conversations, and the active conversation's room for live messages.
   useEffect(() => {
-    if (!selected?.id) return;
-    const iv = window.setInterval(() => {
-      fetchMessages(selected.id, true);
-      fetchList(true);
-    }, 5000);
-    return () => clearInterval(iv);
-  }, [selected?.id, token, statusFilter]);
+    if (!token) return;
+    const s = io(SOCKET_URL, {
+      auth: { token },
+      transports: ["websocket"],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
+    socketRef.current = s;
+
+    s.on("connect", () => {
+      s.emit("join-admin");
+      if (selectedIdRef.current) s.emit("join-conversation", selectedIdRef.current);
+    });
+    s.on("connect_error", (err) => console.warn("[Socket] connect_error:", err.message));
+
+    s.on("support:needs_help", () => fetchListRef.current(true));
+
+    s.on("message", (payload: { conversationId?: string }) => {
+      if (payload?.conversationId && payload.conversationId === selectedIdRef.current) {
+        fetchMessagesRef.current(payload.conversationId, true);
+      }
+      fetchListRef.current(true);
+    });
+
+    s.on("support:read_receipt", (payload: { conversationId?: string }) => {
+      if (payload?.conversationId && payload.conversationId === selectedIdRef.current) {
+        fetchMessagesRef.current(payload.conversationId, true);
+      }
+    });
+
+    return () => { s.disconnect(); socketRef.current = null; };
+  }, [token]);
+
+  // Join/leave the active conversation's room as the selection changes
+  useEffect(() => {
+    const s = socketRef.current;
+    if (!s || !selected?.id) return;
+    s.emit("join-conversation", selected.id);
+    return () => { s.emit("leave-conversation", selected.id); };
+  }, [selected?.id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
