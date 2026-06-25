@@ -13,7 +13,6 @@ const TIERS: { value: PlanTier; label: string }[] = [
   { value: "free", label: "Free" },
   { value: "basic", label: "Basic" },
   { value: "pro", label: "Pro" },
-  { value: "agency", label: "Agency" },
 ];
 
 const GENDERS = [

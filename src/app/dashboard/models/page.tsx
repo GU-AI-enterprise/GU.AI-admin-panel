@@ -18,7 +18,6 @@ const TIER_BADGE: Record<string, { label: string; variant: "slate" | "blue" | "v
   free: { label: "Free", variant: "slate" },
   basic: { label: "Basic", variant: "blue" },
   pro: { label: "Pro", variant: "violet" },
-  agency: { label: "Agency", variant: "warning" },
 };
 
 export default function ModelsPage() {
@@ -85,8 +84,8 @@ export default function ModelsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {(["free", "basic", "pro", "agency"] as const).map((tier) => (
+      <div className="grid grid-cols-3 gap-3">
+        {(["free", "basic", "pro"] as const).map((tier) => (
           <div key={tier} className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs font-medium text-muted-foreground">{TIER_BADGE[tier].label}</p>
             <p className="mt-1 text-2xl font-bold text-foreground">{counts[tier] ?? 0}</p>

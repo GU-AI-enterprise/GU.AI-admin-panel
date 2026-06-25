@@ -13,6 +13,7 @@ export interface AdminUser {
   status: 'active' | 'locked';
   provider: string | null;
   plan_type: string | null;
+  plan_expires_at: string | null;
   current_credit: number;
   created_at: string;
   updated_at: string;

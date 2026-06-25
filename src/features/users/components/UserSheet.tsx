@@ -27,6 +27,12 @@ function formatDate(iso: string) {
 function formatDatetime(iso: string) {
   return new Date(iso).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+/** Số ngày còn lại tới khi hết hạn gói; null nếu không có hạn (free / chưa từng mua gói). */
+function daysRemaining(expiresAt: string | null): number | null {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+}
 
 interface InfoRowProps { label: string; icon: React.ReactNode; children: React.ReactNode; }
 function InfoRow({ label, icon, children }: InfoRowProps) {
@@ -125,7 +131,17 @@ export function UserSheet({
                   </Badge>
                 </InfoRow>
                 <InfoRow label="Gói dịch vụ" icon={<Sparkles className="size-3.5" />}>
-                  <span className="text-sm font-medium capitalize">{user.plan_type || "Free"}</span>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className="text-sm font-medium capitalize">{user.plan_type || "Free"}</span>
+                    {user.plan_type && user.plan_type !== "free" && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {(() => {
+                          const days = daysRemaining(user.plan_expires_at);
+                          return days !== null ? `Còn ${days} ngày` : "Không có hạn";
+                        })()}
+                      </span>
+                    )}
+                  </div>
                 </InfoRow>
                 <InfoRow label="Số dư credit" icon={<CreditCard className="size-3.5" />}>
                   <span className="text-sm font-semibold text-foreground">
